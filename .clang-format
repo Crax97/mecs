@@ -1,0 +1,18 @@
+Language: Cpp
+Standard: Latest
+BasedOnStyle: WebKit
+AlignArrayOfStructures : Right
+AlignConsecutiveBitFields : Consecutive
+AlignConsecutiveMacros : Consecutive
+AlignEscapedNewlines : Right
+AllowShortBlocksOnASingleLine : Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortCaseExpressionOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLambdasOnASingleLine : All
+BinPackParameters: BinPack
+BreakAfterAttributes: Always
+BreakBeforeConceptDeclarations: Always
+BreakTemplateDeclarations: Yes
+InsertBraces: True
+LineEnding: LF
