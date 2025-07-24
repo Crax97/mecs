@@ -9,9 +9,21 @@
 #define MECS_ASSERT(condition) assert((condition))
 #endif
 
-#define MECS_COMPONENTINFO(T) { .name = #T, .size = sizeof(T), .align = _Alignof(T) }
-
 #define MECS_INVALID ~0U
+
+#ifdef __cplusplus
+#define MECS_ALIGN_OF alignof
+#else
+#define MECS_ALIGN_OF _Alignof
+#endif
+#define MECS_COMPONENTINFO(T) { .name = #T, .size = sizeof(T), .align = MECS_ALIGN_OF(T) }
+
+#define MECS_REGISTER_COMPONENT(reg, T)                          \
+    static MecsComponentID Component_##T = MECS_INVALID;         \
+    do {                                                         \
+        ComponentInfo info = MECS_COMPONENTINFO(T);              \
+        Component_##T = mecsRegistryAddRegistration(reg, &info); \
+    } while (0)
 
 MECS_EXTERNCPP()
 /// NOLINTBEGIN
@@ -21,8 +33,8 @@ typedef uint32_t MecsU32;
 typedef size_t MecsSize;
 
 typedef MecsU32 MecsEntityID;
+typedef MecsU32 MecsPrefabID;
 typedef MecsU32 MecsComponentID;
-typedef MecsU32 MecsComponentInstanceID;
 
 typedef void* (*PFNMecsMalloc)(void* userData, MecsSize size, MecsSize align);
 typedef void* (*PFNMecsRealloc)(void* userData, void* old, MecsSize oldSize, MecsSize align,
@@ -30,7 +42,7 @@ typedef void* (*PFNMecsRealloc)(void* userData, void* old, MecsSize oldSize, Mec
 typedef void (*PFNMecsFree)(void* userData, void* ptr);
 
 typedef void (*PFNMecsComponentInit)(void* mem);
-typedef void (*PFNMecsComponentCopy)(void* source, void* dest,
+typedef void (*PFNMecsComponentCopy)(const void* source, void* dest,
     MecsSize componentSize);
 typedef void (*PFNMecsComponentDestroy)(void* mem);
 
@@ -56,9 +68,6 @@ typedef struct MecsRegistryCreateInfo {
 } MecsRegistryCreateInfo;
 
 typedef struct MecsWorldCreateInfo {
-    // Must not be null
-    MecsRegistry* registry;
-
     MecsAllocator memAllocator;
 } MecsWorldCreateInfo;
 
@@ -90,5 +99,10 @@ typedef struct MecsEntityInfo {
 
 } MecsEntityInfo;
 
+typedef struct MecsPrefabInfo {
+    // Can be null
+    const char* name;
+
+} MecsPrefabInfo;
 /// NOLINTEND
 MECS_ENDEXTERNCPP()

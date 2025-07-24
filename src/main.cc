@@ -40,7 +40,7 @@ int main(int argc, char** argv)
     mecsWorldAddComponent(world, entity1, velocityComponent);
 
     // Entities aren't spawned (or destroyed) until the next call to worldFlushEvents
-    mecsWorldFlushEvent(world);
+    mecsWorldFlushEvents(world);
 
     // An iterator is used to iter over all entities matching certain properties
     MecsIterator* iterator = mecsWorldAcquireIterator(world);

@@ -2,6 +2,7 @@
 #include "mecs/base.h"
 
 #include "private.h"
+#include <cstring>
 
 MecsRegistry* mecsRegistryCreate(const MecsRegistryCreateInfo* createInfo)
 {
@@ -63,7 +64,119 @@ void mecsRegistryFree(MecsRegistry* registry)
         ComponentInfo& info = registry->components[i];
         mecsFree(registry->memAllocator, info.name);
     }
-
     registry->components.destroy(registry->memAllocator);
+
+    registry->prefabs.forEach([&]([[maybe_unused]]
+                                  MecsPrefabID pid,
+                                  MecsPrefab& prefab) {
+        prefab.components.forEach([&](MecsPrefabComponent& component) {
+            component.blob.destroy(registry->memAllocator);
+        });
+        prefab.components.destroy(registry->memAllocator);
+        prefab.archetypeBitset.destroy(registry->memAllocator);
+    });
+    registry->prefabs.destroy(registry->memAllocator);
+
     mecsFree(registry->memAllocator, registry);
+}
+
+MecsPrefabID mecsRegistryCreatePrefab(MecsRegistry* reg)
+{
+    MECS_ASSERT(reg != nullptr);
+    return reg->prefabs.push(reg->memAllocator, {});
+}
+void mecsRegistryPrefabAddComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID)
+{
+    mecsRegistryPrefabAddComponentWithDefaults(reg, prefabID, componentID, nullptr);
+}
+void mecsRegistryPrefabAddComponentWithDefaults(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID, const void* defaultValue)
+{
+    MECS_ASSERT(reg != nullptr);
+
+    MecsPrefab* pPrefab = reg->prefabs.at(prefabID);
+    MECS_ASSERT(pPrefab != nullptr);
+    MecsPrefab& prefab = *pPrefab;
+    const ComponentInfo& info = reg->components[componentID];
+    void* blobPtr = nullptr;
+    MecsSize componentCount = prefab.components.count();
+    for (MecsSize i = 0; i < componentCount; i++) {
+        MecsPrefabComponent& component = prefab.components[i];
+        if (component.component == componentID) {
+            blobPtr = component.blob.get();
+            break;
+        }
+    }
+
+    if (blobPtr == nullptr) {
+        ComponentBlob blob(reg, componentID);
+        blobPtr = blob.get();
+        prefab.components.push(reg->memAllocator, { .component = componentID, .blob = std::move(blob) });
+    }
+    MECS_ASSERT(blobPtr != nullptr);
+    if (defaultValue != nullptr) {
+        if (info.copy != nullptr) {
+            info.copy(defaultValue, blobPtr, info.size);
+        } else {
+            memcpy(blobPtr, defaultValue, info.size);
+        }
+    } else {
+        if (info.init != nullptr) {
+            info.init(blobPtr);
+        } else {
+            memset(blobPtr, 0, info.size);
+        }
+    }
+    prefab.archetypeBitset.set(reg->memAllocator, componentID, true);
+}
+void* mecsRegistryPrefabGetComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID)
+{
+    MECS_ASSERT(reg != nullptr);
+
+    MecsPrefab* pPrefab = reg->prefabs.at(prefabID);
+    MECS_ASSERT(pPrefab != nullptr);
+    MecsPrefab& prefab = *pPrefab;
+    MecsSize componentCount = prefab.components.count();
+    const ComponentInfo& info = reg->components[componentID];
+    for (MecsSize i = 0; i < componentCount; i++) {
+        MecsPrefabComponent& component = prefab.components[i];
+        if (component.component == componentID) {
+            void* blobPtr = component.blob.get();
+            return blobPtr;
+        }
+    }
+    MECS_ASSERT(false && "Component not found");
+    return nullptr;
+}
+void mecsRegistryPrefabRemoveComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID)
+{
+    MECS_ASSERT(reg != nullptr);
+    MecsPrefab* pPrefab = reg->prefabs.at(prefabID);
+    MECS_ASSERT(pPrefab != nullptr);
+    MecsPrefab& prefab = *pPrefab;
+    MECS_ASSERT(prefab.archetypeBitset.test(componentID) && "Component not found");
+
+    MecsSize componentCount = prefab.components.count();
+    const ComponentInfo& info = reg->components[componentID];
+    prefab.archetypeBitset.set(reg->memAllocator, componentID, false);
+    for (MecsSize i = 0; i < componentCount; i++) {
+        MecsPrefabComponent& component = prefab.components[i];
+        if (component.component == componentID) {
+            prefab.components.removeAt(i);
+            return;
+        }
+    }
+}
+void mecsRegistryDestroyPrefab(MecsRegistry* reg, MecsPrefabID prefabID)
+{
+    MECS_ASSERT(reg != nullptr);
+    MecsPrefab* pPrefab = reg->prefabs.at(prefabID);
+    MECS_ASSERT(pPrefab != nullptr);
+    MecsPrefab& prefab = *pPrefab;
+
+    prefab.components.forEach([&](MecsPrefabComponent& component) {
+        component.blob.destroy(reg->memAllocator);
+    });
+    prefab.components.destroy(reg->memAllocator);
+
+    reg->prefabs.remove(reg->memAllocator, prefabID);
 }

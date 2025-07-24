@@ -11,5 +11,7 @@ MECS_API void mecsIteratorBegin(MecsIterator* iterator);
 MECS_API bool mecsIteratorAdvance(MecsIterator* iterator);
 MECS_API void* mecsIteratorGetArgument(MecsIterator* iterator, MecsSize argIndex);
 MECS_API MecsWorld* mecsIteratorGetWorld(MecsIterator* iterator);
+MECS_API MecsEntityID mecsIteratorGetEntity(MecsIterator* iterator);
+MECS_API MecsSize mecsUtilIteratorCount(MecsIterator* iterator);
 
 MECS_ENDEXTERNCPP()

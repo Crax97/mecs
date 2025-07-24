@@ -1,3 +1,4 @@
+#include "mecs/iterator.h"
 #include "mecs/base.h"
 
 #include "private.h"
@@ -9,16 +10,11 @@ void mecsIterComponent(MecsIterator* iterator, MecsComponentID component, MecsSi
     MecsWorld* world = iterator->world;
     MECS_ASSERT(world);
 
-    if (world->componentBuckets.isValid(component)) {
-        ComponentBucket& bucket = world->componentBuckets.at(component);
-        bucket.usedByIterators.pushUnique(world->memAllocator, iterator);
-    }
+    iterator->componentSet.set(world->memAllocator, component, true);
 
-    iterator->arguments.ensureSize(world->memAllocator, argIndex + 1);
-    MecsIteratorArgument& argument = iterator->arguments[argIndex];
-    argument.argumentID = component;
-    argument.argumentType = ArgumentType::eComponent;
-    argument.argumentAccess = ArgumentAccess::eInOut;
+    iterator->components.ensureSize(world->memAllocator, argIndex + 1);
+    iterator->components[argIndex] = component;
+
     iterator->dirty = true;
 }
 void mecsIteratorFinalize(MecsIterator* iterator)
@@ -29,69 +25,78 @@ void mecsIteratorFinalize(MecsIterator* iterator)
     MecsWorld* world = iterator->world;
     MECS_ASSERT(world);
 
-    MecsSize numArgs = iterator->arguments.count();
-    world->entities.forEach([&](
-                                MecsEntityID ent,
-                                const MecsEntity& entity) {
-        for (MecsSize i = 0; i < numArgs; i++) {
-            const MecsIteratorArgument& arg = iterator->arguments[i];
-            if (arg.argumentType != ArgumentType::eComponent) {
-                MECS_ASSERT(false && "TODO");
-            }
-
-            if (entity.status != EntityStatus::eSpawned) {
-                // Don't iterate on entities that are either newly born or just killed
-                return;
-            }
-
-            if (!mecsWorldEntityHasComponent(world, ent, arg.argumentID)) {
-                return;
-            }
-        }
-
-        iterator->entities.push(world->memAllocator, ent);
-    });
+    MecsSize count = world->archetypes.count();
 
     iterator->status = IteratorStatus::eIterating;
+
+    if (iterator->components.count() == 0) {
+        // Iterator iterates on all entities
+        iterator->archetypes.ensureSize(world->memAllocator, world->archetypes.count());
+        for (MecsSize i = 0; i < count; i++) {
+            const Archetype& archetype = world->archetypes[i];
+            iterator->archetypes[i] = i;
+        }
+    } else {
+        for (MecsSize i = 0; i < count; i++) {
+            const Archetype& archetype = world->archetypes[i];
+            if (iterator->componentSet.contains(archetype.storage.bitset())) {
+                iterator->archetypes.push(world->memAllocator, i);
+            }
+        }
+    }
 }
 void mecsIteratorBegin(MecsIterator* iterator)
 {
     MECS_ASSERT(iterator != nullptr && "Cannot pass a null iterator");
     MecsWorld* world = iterator->world;
     MECS_ASSERT(world);
-    iterator->currentEntity = 0;
+    iterator->currentArchetype = 0;
+    iterator->currentRow = 0;
 }
 bool mecsIteratorAdvance(MecsIterator* iterator)
 {
     MECS_ASSERT(iterator != nullptr && "Cannot pass a null iterator");
     MECS_ASSERT(iterator->status == IteratorStatus::eIterating && "Cannot advance an iterator that hasn't begun");
 
-    iterator->currentEntity += 1;
-
-    if (iterator->entities.isValid(iterator->currentEntity - 1)) {
-        iterator->currentEntityID = iterator->entities.at(iterator->currentEntity - 1);
+    if (iterator->archetypes.count() == 0) {
+        return false;
     }
 
-    return iterator->entities.isValid(iterator->currentEntity - 1);
+    MecsWorld* world = iterator->world;
+    ArchetypeID worldArchetypeIndex = iterator->archetypes[iterator->currentArchetype];
+    const Archetype& currentArchetype = world->archetypes[worldArchetypeIndex];
+    if (iterator->currentRow >= currentArchetype.storage.rows()) {
+
+        ArchetypeID worldArchetypeIndex = iterator->archetypes[iterator->currentArchetype];
+
+        do {
+            iterator->currentArchetype++;
+            if (iterator->currentArchetype >= iterator->archetypes.count()) {
+                return false;
+            }
+            worldArchetypeIndex = iterator->archetypes[iterator->currentArchetype];
+        } while (world->archetypes[worldArchetypeIndex].storage.rows() == 0);
+        iterator->currentRow = 0;
+    }
+
+    if (iterator->currentArchetype >= iterator->archetypes.count()) {
+        return false;
+    }
+
+    iterator->currentRow += 1;
+    return true;
 }
 void* mecsIteratorGetArgument(MecsIterator* iterator, MecsSize argIndex)
 {
     MECS_ASSERT(iterator != nullptr && "Cannot pass a null iterator");
-    MECS_ASSERT(iterator->currentEntity > 0 && "Must have called mecsIteratorAdvance() at least once");
+    MECS_ASSERT(iterator->currentRow > 0 && "Must have called mecsIteratorAdvance() at least once");
     MECS_ASSERT(iterator->status == IteratorStatus::eIterating && "Cannot fetch the argument of an iterator that hasn't begun");
-    MECS_ASSERT(iterator->arguments.isValid(argIndex) && "Invalid argument index");
     MecsWorld* world = iterator->world;
     MECS_ASSERT(world);
-
-    MecsIteratorArgument& argument = iterator->arguments[argIndex];
-
-    if (argument.argumentType == ArgumentType::eComponent) {
-        MecsEntityID entityID = iterator->currentEntityID;
-        ComponentStorage& storage = world->componentBuckets.at(argument.argumentID).storage;
-        return storage.getComponent(entityID);
-    }
-    MECS_ASSERT("TODO");
-    return nullptr;
+    ArchetypeID worldArchetypeIndex = iterator->archetypes[iterator->currentArchetype];
+    const Archetype& currentArchetype = world->archetypes[worldArchetypeIndex];
+    MecsComponentID component = iterator->components[argIndex];
+    return currentArchetype.storage.getRowComponent(component, iterator->currentRow - 1);
 }
 
 MecsWorld* mecsIteratorGetWorld(MecsIterator* iterator)
@@ -100,4 +105,25 @@ MecsWorld* mecsIteratorGetWorld(MecsIterator* iterator)
     MecsWorld* world = iterator->world;
     MECS_ASSERT(world);
     return world;
+}
+MecsEntityID mecsIteratorGetEntity(MecsIterator* iterator)
+{
+    MECS_ASSERT(iterator != nullptr && "Cannot pass a null iterator");
+    MecsWorld* world = iterator->world;
+    MECS_ASSERT(world);
+    ArchetypeID worldArchetypeIndex = iterator->archetypes[iterator->currentArchetype];
+    const Archetype& currentArchetype = world->archetypes[worldArchetypeIndex];
+    MecsEntityID entity = currentArchetype.rowToEntity[iterator->currentRow - 1];
+    return entity;
+}
+
+MECS_API MecsSize mecsUtilIteratorCount(MecsIterator* iterator)
+{
+    MECS_ASSERT(iterator != nullptr && "Cannot pass a null iterator");
+    mecsIteratorBegin(iterator);
+    MecsSize count = 0;
+    while (mecsIteratorAdvance(iterator)) {
+        count++;
+    }
+    return count;
 }

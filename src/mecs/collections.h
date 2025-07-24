@@ -2,7 +2,10 @@
 
 #include "mecs/base.h"
 
+#include <concepts>
 #include <cstddef>
+#include <cstring>
+#include <initializer_list>
 #include <memory>
 #include <type_traits>
 
@@ -18,12 +21,17 @@ T* mecsAlloc(const MecsAllocator& alloc, Args&&... args)
 }
 
 template <typename T>
-T* mecsCalloc(const MecsAllocator& alloc, MecsSize count)
+T* mecsCallocAligned(const MecsAllocator& alloc, MecsSize count, MecsSize align)
 {
-    T* ptr = static_cast<T*>(alloc.memAlloc(alloc.userData, sizeof(T) * count, alignof(T)));
+    T* ptr = static_cast<T*>(alloc.memAlloc(alloc.userData, sizeof(T) * count, align));
     return ptr;
 }
 
+template <typename T>
+T* mecsCalloc(const MecsAllocator& alloc, MecsSize count)
+{
+    return mecsCallocAligned<T>(alloc, count, alignof(T));
+}
 template <typename T>
 T* mecsRelloc(const MecsAllocator& alloc, T* old, MecsSize oldCount, MecsSize newCount)
 {
@@ -121,6 +129,53 @@ public:
 template <typename T>
 class MecsVec {
 public:
+    MecsVec() = default;
+    MecsVec(std::initializer_list<T> elems, MecsAllocator allocator)
+    {
+        for (const auto& elem : elems) {
+            push(allocator, elem);
+        }
+    }
+
+    MecsVec& operator=(MecsVec&& rhs) noexcept
+    {
+        mData = rhs.mData;
+        mCount = rhs.mCount;
+        mCapacity = rhs.mCapacity;
+        rhs.mData = nullptr;
+        rhs.mCapacity = 0;
+        rhs.mData = 0;
+        return *this;
+    }
+
+    MecsVec(MecsVec&& rhs) noexcept
+        : mData(rhs.mData)
+        , mCount(rhs.mCount)
+        , mCapacity(rhs.mCapacity)
+    {
+        rhs.mData = nullptr;
+        rhs.mCapacity = 0;
+        rhs.mData = 0;
+    }
+
+    MecsVec(const MecsVec&) = delete;
+    MecsVec& operator=(const MecsVec&) = delete;
+
+    constexpr bool operator==(const MecsVec& other) const
+        requires(std::equality_comparable<T>)
+    {
+        if (other.count() != count()) {
+            return false;
+        }
+
+        for (MecsSize i = 0; i < mCount; i++) {
+            if (other[i] != at(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     [[nodiscard]]
     MecsSize count() const
     {
@@ -146,13 +201,18 @@ public:
         return at(mCount - 1);
     }
 
+    void removeAt(MecsSize index)
+    {
+        MECS_ASSERT(isValid(index));
+        std::swap(back(), at(index));
+        pop();
+    }
+
     bool remove(T value)
     {
         for (MecsSize removed = 0; removed < mCount; removed++) {
             if (value == at(removed)) {
-                std::swap(back(), at(removed));
-                pop();
-
+                removeAt(removed);
                 return true;
             }
         }
@@ -161,6 +221,16 @@ public:
 
     template <typename F>
     void forEach(F&& func)
+    {
+        MecsSize oldCount = mCount;
+        for (MecsSize i = 0; i < mCount; i++) {
+            func(at(i));
+            MECS_ASSERT(mCount == oldCount && "Element count changed during iteration! This is not allowed");
+        }
+    }
+
+    template <typename F>
+    void forEach(F&& func) const
     {
         MecsSize oldCount = mCount;
         for (MecsSize i = 0; i < mCount; i++) {
@@ -184,7 +254,7 @@ public:
         mCount++;
 
         T* ptr = atPtr(mCount - 1);
-        new (ptr) T(value);
+        new (ptr) T(std::move(value));
         return mCount - 1;
     }
     MecsSize pushUnique(const MecsAllocator& allocator, T value)
@@ -241,18 +311,23 @@ public:
             mData = mecsRelloc(allocator, mData, mCapacity, newSize);
             mCapacity = newSize;
         } else if (newSize > oldCount) {
-            if (newSize < mCapacity) {
-                // No need to reallocate/grow, there's enough room
-                return;
+            if (newSize >= mCapacity) {
+                // Need to resize the Vec to accomodate for more items
+                grow(allocator, growCount(newSize));
             }
-            grow(allocator, growCount(newSize));
 
-            // Check if the type is non-trivially constructible, only in that case call the constructor
-            // Otherwise just mallocing memory is enough
-            if constexpr (std::is_default_constructible_v<T> && !std::is_trivially_default_constructible_v<T>) {
-                for (MecsSize i = oldCount; i < newSize; i++) {
-                    T* ptr = atPtr(i);
-                    new (ptr) T();
+            // Check if the type is not POD, only in that case call the constructor
+            // Otherwise just mallocing + memset memory is enough
+            if constexpr (std::is_default_constructible_v<T>) {
+                // if it's a pod type just do a memset(0)
+                if (std::is_standard_layout_v<T>) {
+                    T* ptr = atPtr(oldCount);
+                    memset(static_cast<void*>(ptr), 0, sizeof(T) * (newSize - oldCount));
+                } else {
+                    for (MecsSize i = oldCount; i < newSize; i++) {
+                        T* ptr = atPtr(i);
+                        new (ptr) T {};
+                    }
                 }
             }
         }
@@ -301,6 +376,12 @@ public:
     {
     }
 
+    MecsVecUnmanaged(MecsVecUnmanaged&& rhs) noexcept;
+    MecsVecUnmanaged& operator=(MecsVecUnmanaged&& rhs) noexcept;
+
+    MecsVecUnmanaged(const MecsVecUnmanaged&) = delete;
+    MecsVecUnmanaged& operator=(const MecsVecUnmanaged&) = delete;
+
     [[nodiscard]]
     MecsSize count() const
     {
@@ -338,6 +419,43 @@ private:
     char* mData { nullptr };
 };
 
+class BitSet {
+public:
+    using Word = MecsU32;
+    void set(const MecsAllocator& allocator, MecsSize slot, bool value);
+    [[nodiscard]]
+    bool test(MecsSize slot) const;
+
+    void destroy(const MecsAllocator& allocator);
+    void clear();
+
+    [[nodiscard]]
+    bool allZeroes() const;
+
+    [[nodiscard]]
+    bool contains(const BitSet& other) const;
+
+    [[nodiscard]]
+    BitSet clone(const MecsAllocator& allocator) const;
+
+    template <typename F>
+    void forEach(F&& func)
+    {
+        MecsSize numBits = sizeof(Word) * 8 * mWords.count(); // NOLINT
+        for (MecsSize i = 0; i < numBits; i++) {
+            if (test(i)) {
+                func(i);
+            }
+        }
+    }
+
+    bool operator==(const BitSet& other) const;
+    bool operator!=(const BitSet& other) const = default;
+
+private:
+    MecsVec<Word> mWords;
+};
+
 template <typename T>
 class GenArena {
 public:
@@ -371,10 +489,11 @@ public:
             MECS_ASSERT(!entry.tagGeneration.taken);
             versIndex.version.generation = entry.tagGeneration.generation;
             entry.tagGeneration.taken = true;
+            entry.value = std::move(value);
         } else {
             index = mEntries.count();
             mEntries.push(allocator, Entry {
-                                         value, { 0, true }
+                                         std::move(value), { 0, true }
             });
         }
         versIndex.version.index = index;
@@ -389,17 +508,17 @@ public:
         MecsSize idx = 0;
         TaggedGenIndex genIndex;
         while (idx < mCount) {
-            Entry& ent = mEntries[idx];
-            while (!ent.tagGeneration.taken) {
+            Entry* ent = &mEntries[idx];
+            while (!ent->tagGeneration.taken) {
                 idx++;
                 MECS_ASSERT(idx < mCount);
-                ent = mEntries[idx];
+                ent = &mEntries[idx];
             }
 
             genIndex.version.index = idx;
-            genIndex.version.generation = ent.tagGeneration.generation;
+            genIndex.version.generation = ent->tagGeneration.generation;
 
-            func(genIndex.index, ent.value);
+            func(genIndex.index, ent->value);
             MECS_ASSERT(mCount == oldCount && "Element count changed during iteration! This is not allowed");
             idx++;
         }
@@ -407,19 +526,19 @@ public:
 
     T remove(const MecsAllocator& allocator, GenIndex index)
     {
-        T* ptr = at(index);
-        MECS_ASSERT(ptr != nullptr);
-        T copy = *ptr;
-        Entry& entry = mEntries.at(index);
-        MECS_ASSERT(entry.tagGeneration.taken);
-        entry.tagGeneration.generation += 1;
-        entry.tagGeneration.taken = false;
-        entry.value.~T();
-
         TaggedGenIndex versIndex;
         versIndex.index = index;
+
+        Entry& entry = mEntries.at(versIndex.version.index);
+        MECS_ASSERT(entry.tagGeneration.taken);
+        MECS_ASSERT(entry.tagGeneration.generation == versIndex.version.generation);
+        entry.tagGeneration.generation += 1;
+        entry.tagGeneration.taken = false;
+        T value = std::move(entry.value);
+        entry.value.~T();
+
         mFreeIndices.push(allocator, versIndex.version.index);
-        return copy;
+        return value;
     }
 
     T*
@@ -429,7 +548,7 @@ public:
         TaggedGenIndex versIndex;
         versIndex.index = index;
 
-        Entry& entry = mEntries.at(index);
+        Entry& entry = mEntries.at(versIndex.version.index);
         MECS_ASSERT(entry.tagGeneration.taken);
 
         if (entry.tagGeneration.generation != versIndex.version.generation) {

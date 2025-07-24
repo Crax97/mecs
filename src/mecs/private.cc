@@ -1,11 +1,7 @@
 #include "private.h"
+#include "collections.h"
 #include "mecs/base.h"
 #include <cstring>
-
-const ElementInfo kVersionInfo = { .size = sizeof(Version),
-    .align = _Alignof(Version) };
-const ElementInfo kSizeInfo = { .size = sizeof(MecsSize),
-    .align = _Alignof(MecsSize) };
 
 void* mecsDefaultMalloc(void* userData, MecsSize size, MecsSize align) { return malloc(size); }
 void* mecsDefaultRealloc(void* userData, void* old, MecsSize oldSize, MecsSize align,
@@ -13,7 +9,9 @@ void* mecsDefaultRealloc(void* userData, void* old, MecsSize oldSize, MecsSize a
 {
     return realloc(old, newSize);
 }
-void mecsDefaultFree(void* userData, void* ptr) { free(ptr); }
+void mecsDefaultFree(void* userData, void* ptr) { 
+    free(ptr);
+}
 
 void mecsMemCpy(const char* source, MecsSize sourceSize, char* dest, MecsSize destSize)
 {
@@ -46,13 +44,13 @@ const char* mecsStrDup(const MecsAllocator& alloc, const char* str)
     if (str == nullptr) { return nullptr; }
     MecsSize strLen = mecsStrLen(str);
 
-    char* dup = mecsCalloc<char>(alloc, strLen + 1);
+    char* dup = mecsCallocAligned<char>(alloc, strLen + 1, alignof(char));
     mecsMemCpy(str, strLen, dup, strLen);
     dup[strLen] = 0;
     return dup;
 }
 
-MecsComponentInstanceID ComponentStorage::constructUninitialized(const MecsAllocator& allocator, MecsEntityID owner, void** outPtr)
+MecsComponentID ComponentStorage::constructUninitialized(const MecsAllocator& allocator, MecsEntityID owner, void** outPtr)
 {
 
     MecsSize index;
@@ -96,11 +94,57 @@ void ComponentStorage::destroy(const MecsAllocator& allocator)
     mFreeIndices.destroy(allocator);
 }
 
-ComponentBucket* worldGetBucket(MecsWorld* world, MecsComponentID componentID)
+ComponentBlob::ComponentBlob(const MecsRegistry* registry, MecsComponentID component) noexcept
+    : mComponentID(component)
 {
-    MECS_ASSERT(world);
-    if (!world->componentBuckets.isValid(componentID)) {
-        return nullptr;
+    MECS_ASSERT(registry != nullptr && registry->memAllocator.memAlloc != nullptr);
+    const ComponentInfo& componentInfo = registry->components[component];
+    mData = mecsCallocAligned<MecsU8>(registry->memAllocator, componentInfo.size, componentInfo.align);
+    if (componentInfo.init != nullptr) {
+        componentInfo.init(mData);
     }
-    return &world->componentBuckets[componentID];
+}
+
+ComponentBlob::ComponentBlob(ComponentBlob&& rhs) noexcept
+    : mData(rhs.mData)
+    , mComponentID(rhs.mComponentID)
+{
+    rhs.mData = nullptr;
+    rhs.mComponentID = MECS_INVALID;
+}
+ComponentBlob& ComponentBlob::operator=(ComponentBlob&& rhs) noexcept
+{
+    mData = rhs.mData;
+    mComponentID = rhs.mComponentID;
+    rhs.mData = nullptr;
+    rhs.mComponentID = MECS_INVALID;
+    return *this;
+}
+
+void* ComponentBlob::get() const
+{
+    return static_cast<void*>(mData);
+}
+
+void ComponentBlob::destroy(const MecsAllocator& allocator)
+{
+    mecsFree(allocator, mData);
+    mData = nullptr;
+}
+
+void ComponentBlob::copyOnto(const MecsRegistry* registry, void* dest) const
+{
+    MECS_ASSERT(registry != nullptr && registry->memAllocator.memAlloc != nullptr);
+    MECS_ASSERT(mComponentID != MECS_INVALID);
+    const ComponentInfo& componentInfo = registry->components[mComponentID];
+    if (componentInfo.copy != nullptr) {
+        componentInfo.copy(mData, dest, componentInfo.size);
+    } else {
+        memcpy(dest, mData, componentInfo.size);
+    }
+}
+
+ComponentBlob::~ComponentBlob()
+{
+    MECS_ASSERT(mData == nullptr && "Did not call destroy");
 }
