@@ -2,7 +2,7 @@
 Mecs is a small archetype-based entity component system meant to be kept as small as possible.
 It offers a simple C api, with a C++ wrapper for improved ease of use, RAII-based resource management and better type safety.
 
-A simple mecs application looks like this (taken from the `samples.cc` test):
+A simple mecs C application looks like this (taken from the `samples.cc` test):
 ```c
 #include "mecs/base.h"
 
@@ -184,7 +184,7 @@ mecsWorldReleaseIterator(world, meshes);
 mecsWorldFree(world);
 mecsRegistryFree(registry);
 ```
-while the same sample, written in C, would look like this (notice how it's much more shorter and concise)
+while the same sample, written in C++, would look like this (notice how it's much more shorter and concise)
 ```c++
 
 #include "mecshpp/mecs.hpp"
