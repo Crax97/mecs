@@ -7,6 +7,8 @@
 #include "mecs/world.h"
 
 #include <compare>
+#include <print>
+#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -26,6 +28,30 @@
     template <>                                                                                    \
     struct hash<mecs::Struct> {                                                                    \
         size_t operator()(const mecs::Struct& mID) const { return std::hash<MecsU32>()(mID.mID); } \
+    };                                                                                             \
+    template <>                                                                                    \
+    struct formatter<mecs::Struct, char> {                                                         \
+        constexpr auto parse(format_parse_context& ctx)                                            \
+        {                                                                                          \
+            auto itr = ctx.begin();                                                                \
+            if (itr == ctx.end()) {                                                                \
+                return itr;                                                                        \
+            }                                                                                      \
+            while (itr != ctx.end() && *itr != '}') {                                              \
+                itr++;                                                                             \
+            }                                                                                      \
+                                                                                                   \
+            if (itr == ctx.end() || *itr != '}') {                                                 \
+                throw std::format_error("Invalid format args for " #Struct);                       \
+            }                                                                                      \
+            return itr;                                                                            \
+        }                                                                                          \
+        constexpr auto format(mecs::Struct& strukt, format_context& ctx) const                     \
+        {                                                                                          \
+            std::ostringstream out;                                                                \
+            out << #Struct << " {" << strukt.id() << "}";                                          \
+            return std::ranges::copy(std::move(out).str(), ctx.out()).out;                         \
+        }                                                                                          \
     };                                                                                             \
     }
 

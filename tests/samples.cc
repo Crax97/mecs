@@ -300,7 +300,7 @@ TEST_CASE("C++ sample")
             while (enemyIterator.advance()) {
                 auto [enemy, enemyPos, enemyVel] = enemyIterator.get();
                 if (enemyPos.x == playerPos.x && enemyPos.y == playerPos.y && enemyPos.z == playerPos.z) {
-                    std::println("Kill enemy entity {}", enemyIterator.getEntityID().id());
+                    std::println("Kill enemy entity {}", enemyIterator.getEntityID());
                     world.destroyEntity(enemyIterator.getEntityID());
                 }
             }
