@@ -33,18 +33,7 @@
     struct formatter<mecs::Struct, char> {                                                         \
         constexpr auto parse(format_parse_context& ctx)                                            \
         {                                                                                          \
-            auto itr = ctx.begin();                                                                \
-            if (itr == ctx.end()) {                                                                \
-                return itr;                                                                        \
-            }                                                                                      \
-            while (itr != ctx.end() && *itr != '}') {                                              \
-                itr++;                                                                             \
-            }                                                                                      \
-                                                                                                   \
-            if (itr == ctx.end() || *itr != '}') {                                                 \
-                throw std::format_error("Invalid format args for " #Struct);                       \
-            }                                                                                      \
-            return itr;                                                                            \
+            return std::formatter<MecsU32>().parse(ctx);                                           \
         }                                                                                          \
         constexpr auto format(mecs::Struct& strukt, format_context& ctx) const                     \
         {                                                                                          \
