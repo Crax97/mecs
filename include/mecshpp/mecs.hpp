@@ -12,6 +12,23 @@
 #include <tuple>
 #include <utility>
 
+#define MECS_CONSTRUCTORS(Type)            \
+    Type() = default;                      \
+    Type(const Type&) = delete;            \
+    Type& operator=(const Type&) = delete; \
+                                           \
+    Type(Type&& rhs) noexcept              \
+        : mHandle(rhs.mHandle)             \
+    {                                      \
+        rhs.mHandle = nullptr;             \
+    }                                      \
+    Type& operator=(Type&& rhs) noexcept   \
+    {                                      \
+        mHandle = rhs.mHandle;             \
+        rhs.mHandle = nullptr;             \
+        return *this;                      \
+    }
+
 #define DEFINE_ID(Struct)                                                                          \
     namespace mecs {                                                                               \
     struct Struct {                                                                                \
@@ -151,7 +168,7 @@ public:
     PrefabBuilder& withComponent(Args&&... args)
     {
         T defaultVal = T(std::forward<Args>(args)...);
-        mecsRegistryPrefabAddComponentWithDefaults(mRegistry, mPrefabID, RegistrationInfo<T>::getComponentID().id(), &defaultVal);
+        mecsRegistryPrefabAddComponentWithDefaults(mHandleistry, mPrefabID, RegistrationInfo<T>::getComponentID().id(), &defaultVal);
         return *this;
     }
 
@@ -163,11 +180,11 @@ public:
 private:
     friend class Registry;
     PrefabBuilder(MecsRegistry* reg, MecsPrefabID prefab)
-        : mRegistry(reg)
+        : mHandleistry(reg)
         , mPrefabID(prefab)
     {
     }
-    MecsRegistry* mRegistry;
+    MecsRegistry* mHandleistry;
     MecsPrefabID mPrefabID;
 };
 
@@ -211,6 +228,8 @@ public:
     Registry(const MecsRegistryCreateInfo& registryInfo = {});
     ~Registry();
 
+    MECS_CONSTRUCTORS(Registry)
+
     ComponentID addRegistration(const ComponentInfo& componentInfo);
 
     PrefabBuilder createPrefab();
@@ -222,7 +241,7 @@ public:
     template <typename T>
     ComponentID addRegistration(const char* name)
     {
-        RegistrationInfo<T>::init(mReg, name);
+        RegistrationInfo<T>::init(mHandle, name);
         return RegistrationInfo<T>::getComponentID();
     }
 
@@ -245,18 +264,18 @@ public:
     [[nodiscard]]
     MecsRegistry* getHandle() const
     {
-        return mReg;
+        return mHandle;
     }
 
 private:
-    MecsRegistry* mReg { nullptr };
+    MecsRegistry* mHandle { nullptr };
 };
 template <typename... Args>
 class Iterator;
 
 class MECS_API World {
 public:
-    World() = default;
+    MECS_CONSTRUCTORS(World)
     World(Registry& registry, const MecsWorldCreateInfo& worldCreateInfo = {});
     ~World();
 
@@ -306,17 +325,17 @@ public:
     [[nodiscard]]
     MecsWorld* getHandle() const
     {
-        return mWorld;
+        return mHandle;
     }
 
 private:
     template <typename... Args>
     friend class Iterator;
     World(MecsWorld* world)
-        : mWorld(world)
+        : mHandle(world)
     {
     }
-    MecsWorld* mWorld { nullptr };
+    MecsWorld* mHandle { nullptr };
 };
 
 template <typename... Args>
@@ -329,40 +348,40 @@ public:
 
     void begin()
     {
-        mecsIteratorBegin(mIterator);
+        mecsIteratorBegin(mHandle);
     }
     [[nodiscard]]
     bool advance()
     {
-        return mecsIteratorAdvance(mIterator);
+        return mecsIteratorAdvance(mHandle);
     }
 
     void release()
     {
 
-        if (mIterator == nullptr) { return; }
-        mecsWorldReleaseIterator(mecsIteratorGetWorld(mIterator), mIterator);
-        mIterator = nullptr;
+        if (mHandle == nullptr) { return; }
+        mecsWorldReleaseIterator(mecsIteratorGetWorld(mHandle), mHandle);
+        mHandle = nullptr;
     }
 
     EntityID getEntityID()
     {
-        return { mecsIteratorGetEntity(mIterator) };
+        return { mecsIteratorGetEntity(mHandle) };
     }
     World getWorld()
     {
-        return World { mecsIteratorGetWorld(mIterator) };
+        return World { mecsIteratorGetWorld(mHandle) };
     }
 
     std::tuple<Args...> get()
     {
-        return detail::getIteratorArguments<Args...>(mIterator, std::make_index_sequence<sizeof...(Args)>());
+        return detail::getIteratorArguments<Args...>(mHandle, std::make_index_sequence<sizeof...(Args)>());
     }
 
     [[nodiscard]]
     MecsIterator* getHandle() const
     {
-        return mIterator;
+        return mHandle;
     }
 
 private:
@@ -370,11 +389,11 @@ private:
 
     Iterator(World& world)
     {
-        mIterator = mecsWorldAcquireIterator(world.getHandle());
-        detail::initIterator<Args...>(mIterator, std::make_index_sequence<sizeof...(Args)>());
-        mecsIteratorFinalize(mIterator);
+        mHandle = mecsWorldAcquireIterator(world.getHandle());
+        detail::initIterator<Args...>(mHandle, std::make_index_sequence<sizeof...(Args)>());
+        mecsIteratorFinalize(mHandle);
     }
-    MecsIterator* mIterator { nullptr };
+    MecsIterator* mHandle { nullptr };
 };
 
 namespace utils {

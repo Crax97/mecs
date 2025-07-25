@@ -7,55 +7,55 @@ using namespace mecs;
 
 Registry::Registry(const MecsRegistryCreateInfo& registryInfo)
 {
-    mReg = mecsRegistryCreate(&registryInfo);
+    mHandle = mecsRegistryCreate(&registryInfo);
 }
 
 Registry::~Registry()
 {
-    if (mReg == nullptr) { return; }
-    mecsRegistryFree(mReg);
-    mReg = nullptr;
+    if (mHandle == nullptr) { return; }
+    mecsRegistryFree(mHandle);
+    mHandle = nullptr;
 }
 
 ComponentID Registry::addRegistration(const ComponentInfo& info)
 {
-    return { mecsRegistryAddRegistration(mReg, &info) };
+    return { mecsRegistryAddRegistration(mHandle, &info) };
 }
 
 PrefabBuilder Registry::createPrefab()
 {
-    return { mReg, mecsRegistryCreatePrefab(mReg) };
+    return { mHandle, mecsRegistryCreatePrefab(mHandle) };
 }
 void Registry::addPrefabComponent(PrefabID prefab, ComponentID component, const void* defaultValue)
 {
-    mecsRegistryPrefabAddComponentWithDefaults(mReg, prefab.id(), component.id(), defaultValue);
+    mecsRegistryPrefabAddComponentWithDefaults(mHandle, prefab.id(), component.id(), defaultValue);
 }
 
 void* Registry::getPrefabComponent(PrefabID prefab, ComponentID component)
 {
-    return mecsRegistryPrefabGetComponent(mReg, prefab.id(), component.id());
+    return mecsRegistryPrefabGetComponent(mHandle, prefab.id(), component.id());
 }
 
 void Registry::removePrefabComponent(PrefabID prefab, ComponentID component)
 {
-    mecsRegistryPrefabRemoveComponent(mReg, prefab.id(), component.id());
+    mecsRegistryPrefabRemoveComponent(mHandle, prefab.id(), component.id());
 }
 
 void Registry::destroyPrefab(PrefabID prefab)
 {
-    mecsRegistryDestroyPrefab(mReg, prefab.id());
+    mecsRegistryDestroyPrefab(mHandle, prefab.id());
 }
 
 World::World(Registry& reg, const MecsWorldCreateInfo& worldCreateInfo)
 {
-    mWorld = mecsWorldCreate(reg.getHandle(), &worldCreateInfo);
+    mHandle = mecsWorldCreate(reg.getHandle(), &worldCreateInfo);
 }
 
 World::~World()
 {
-    if (mWorld == nullptr) { return; }
-    mecsWorldFree(mWorld);
-    mWorld = nullptr;
+    if (mHandle == nullptr) { return; }
+    mecsWorldFree(mHandle);
+    mHandle = nullptr;
 }
 
 EntityBuilder World::spawnEntity(const MecsEntityInfo& entityInfo)
@@ -64,35 +64,35 @@ EntityBuilder World::spawnEntity(const MecsEntityInfo& entityInfo)
 }
 EntityBuilder World::spawnEntityPrefab(PrefabID prefab, const MecsEntityInfo& entityInfo)
 {
-    return { mWorld, mecsWorldSpawnEntityPrefab(mWorld, prefab.id(), &entityInfo) };
+    return { mHandle, mecsWorldSpawnEntityPrefab(mHandle, prefab.id(), &entityInfo) };
 }
 
 bool World::entityHasComponent(EntityID entity, ComponentID component) const
 {
-    return mecsWorldEntityHasComponent(mWorld, entity.id(), component.id());
+    return mecsWorldEntityHasComponent(mHandle, entity.id(), component.id());
 }
 
 void* World::entityGetComponent(EntityID entity, ComponentID component) const
 {
-    return mecsWorldEntityGetComponent(mWorld, entity.id(), component.id());
+    return mecsWorldEntityGetComponent(mHandle, entity.id(), component.id());
 }
 
 void World::entityAddComponent(EntityID entity, ComponentID component)
 {
-    mecsWorldAddComponent(mWorld, entity.id(), component.id());
+    mecsWorldAddComponent(mHandle, entity.id(), component.id());
 }
 
 void World::entityRemoveComponent(EntityID entity, ComponentID component)
 {
-    mecsWorldRemoveComponent(mWorld, entity.id(), component.id());
+    mecsWorldRemoveComponent(mHandle, entity.id(), component.id());
 }
 
 void World::destroyEntity(EntityID entity)
 {
-    mecsWorldDestroyEntity(mWorld, entity.id());
+    mecsWorldDestroyEntity(mHandle, entity.id());
 }
 
 void World::flushEvents()
 {
-    mecsWorldFlushEvents(mWorld);
+    mecsWorldFlushEvents(mHandle);
 }

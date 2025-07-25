@@ -55,7 +55,7 @@ if(MECS_COMPILE_TESTS)
     )
 
     target_include_directories(mecs_tests PRIVATE src/mecs)
-    target_link_libraries(mecs_tests PRIVATE mecshpp Catch2)
+    target_link_libraries(mecs_tests PRIVATE mecshpp MecsCatch2)
     set_target_properties(mecs_tests PROPERTIES C_STANDARD 23 C_STANDARD_REQUIRED ON CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
     if(MECS_TESTS_LEAK_DETECTION)
         message(STATUS "Enabling leak detection in tests")
