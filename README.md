@@ -1,8 +1,8 @@
 # MECS - Mayo's Entity Component System
 Mecs is a small archetype-based entity component system meant to be kept as small as possible.
-It offers a simple C api, with a C++ wrapper for improved ease of use, RAII-based resource management and better type safety.
-
-A simple mecs C application looks like this (taken from the `samples.cc` test):
+It offers a simple C23 api, with a C++23 wrapper for improved ease of use, RAII-based resource management and better type safety.
+The only dependencies are libc for the C api and catch2 (sourced in the repository), the C++ wrapper depends on std, but don't use any of the std containers.
+A simple mecs C application looks like this (taken from the `tests/samples.cc` test file):
 ```c
 #include "mecs/base.h"
 
@@ -269,7 +269,7 @@ for (int i = 0; i < 10; i++) {
         while (enemyIterator.advance()) {
             auto [enemy, enemyPos, enemyVel] = enemyIterator.get();
             if (enemyPos.x == playerPos.x && enemyPos.y == playerPos.y && enemyPos.z == playerPos.z) {
-                std::println("Kill enemy entity {}", enemyIterator.getEntityID().id());
+                std::println("Kill enemy entity {}", enemyIterator.getEntityID());
                 world.destroyEntity(enemyIterator.getEntityID());
             }
         }
@@ -281,3 +281,20 @@ for (int i = 0; i < 10; i++) {
 ```
 
 Additionally, by default the C++ api automatically registers components using the component's constructor as the init function, destructor as the destroy function and copy constructor as the copy function. 
+
+## Building the library and running tests
+The library is meant to be as easily buildable as possible: just
+```
+cmake -B build && cmake --build build
+``` should suffice.
+
+To build the tests, you can run the following commands:
+
+```
+cmake -B build -DMECS_COMPILE_TESTS=ON
+```
+this will build the `mecs_tests` executable target, which you can run to execute the library's tests.
+
+Additionally, you can pass `-DMECS_TESTS_LEAK_DETECTION=ON` to cmake, which will build the tests using a custom `MecsAllocator` memory allocator that tracks allocations and frees, to check if there are any memory leaks.
+
+Keep in mind that the custom allocator only tracks library allocations, it doesn't check for e.g structs that allocate memory on their constructors, but don't free it in their destructors.
