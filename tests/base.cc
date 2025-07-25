@@ -1,10 +1,13 @@
 #include "mecs/base.h"
+#include "catch_amalgamated.hpp"
 #include "mecs/iterator.h"
 #include "mecs/mecs.h"
 #include "mecs/registry.h"
 #include "mecs/world.h"
 
+#include "mecshpp/mecs.hpp"
 #include "test_private.hpp"
+#include <vector>
 // NOLINTBEGIN this is a test file
 
 TEST_CASE("Basics")
@@ -374,6 +377,132 @@ TEST_CASE("Spawning components in a loop")
 
     mecsWorldFree(world);
     mecsRegistryFree(registry);
+}
+
+TEST_CASE("C++ resource management")
+{
+    static MecsSize gNumConstructorCalls = 0;
+    static MecsSize gNumDestructorCalls = 0;
+    {
+        struct Name {
+            std::string name;
+        };
+
+        struct VectorNames {
+            std::vector<std::string> names;
+        };
+
+        struct ConstructorDestructor {
+            ConstructorDestructor()
+            {
+                gNumConstructorCalls++;
+            }
+            ConstructorDestructor(const ConstructorDestructor&) {
+
+            };
+            ~ConstructorDestructor()
+            {
+                gNumDestructorCalls++;
+            }
+        };
+
+        mecs::Registry registry(MecsRegistryCreateInfo { .memAllocator = kDebugAllocator });
+        registry.addRegistration<Name>("Name");
+        registry.addRegistration<VectorNames>("VectorNames");
+        registry.addRegistration<ConstructorDestructor>("ConstructorDestructor");
+
+        mecs::PrefabID baseName = registry.createPrefab().withComponent<Name>("Mayo");
+        mecs::PrefabID vectorOfNames = registry.createPrefab().withComponent<VectorNames>(VectorNames({ "Foo", "Bar", "Baz" }));
+        mecs::PrefabID constructorDestructor = registry.createPrefab().withComponent<ConstructorDestructor>();
+
+        // Two constructors should have been called
+        // One for the default-initialized value
+        // One for the explicit default value that was passed to withComponent
+        // The destructor should have been called once for the explicit default value
+        REQUIRE(gNumConstructorCalls == 2);
+        REQUIRE(gNumDestructorCalls == 1);
+
+        mecs::World world(registry);
+        mecs::EntityID entity = world.spawnEntityPrefab(baseName);
+
+        mecs::EntityID entity2 = world.spawnEntityPrefab(constructorDestructor);
+        REQUIRE(gNumConstructorCalls == 3);
+        REQUIRE(gNumDestructorCalls == 1);
+        world.entityAddComponent<Name>(entity2);
+
+        // Constructor for the new row should have been called (+1 c)
+        // Copy constructor should have been called from old row to new row
+        // Destructor should have been called on old row
+        REQUIRE(gNumConstructorCalls == 4);
+        REQUIRE(gNumDestructorCalls == 2);
+        world.destroyEntity(entity2);
+        world.flushEvents();
+
+        // Destructor should have been called on row
+        REQUIRE(gNumConstructorCalls == 4);
+        REQUIRE(gNumDestructorCalls == 3);
+
+        {
+            Name* n = world.entityGetComponent<Name>(entity);
+            REQUIRE(n->name == "Mayo");
+            n->name = "Tizio";
+        }
+        world.entityAddComponent<VectorNames>(entity);
+        {
+            // Need another pointer because the entity was moved to another storage
+            Name* n = world.entityGetComponent<Name>(entity);
+            REQUIRE(n->name == "Tizio");
+
+            Name* pb = registry.getPrefabComponent<Name>(baseName);
+            REQUIRE(pb->name == "Mayo");
+
+            VectorNames* vn = world.entityGetComponent<VectorNames>(entity);
+            REQUIRE(vn->names.empty());
+        }
+    }
+    // No further constructors should have been called
+    REQUIRE(gNumConstructorCalls == 4);
+    // Prefab destructor should have been called now
+    REQUIRE(gNumDestructorCalls == 4);
+}
+
+TEST_CASE("Order of operations")
+{
+    mecs::Registry reg({ kDebugAllocator });
+
+    struct Foo { };
+    struct Bar { };
+    reg.addRegistration<Foo>("Foo");
+    reg.addRegistration<Bar>("Bar");
+
+    mecs::World world(reg);
+    mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
+    mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
+
+    mecs::EntityID entity = world.spawnEntity()
+                                .withComponent<Foo>();
+
+    // Entities aren't spawned until flushEvents
+    REQUIRE(mecs::utils::count(fooIterator) == 0);
+    world.flushEvents();
+
+    REQUIRE(mecs::utils::count(fooIterator) == 1);
+
+    // A new archetype <Foo, Bar> is created
+    world.entityAddComponent<Bar>(entity);
+    // Archetype changes are instantaneous
+    REQUIRE(mecs::utils::count(fooIterator) == 0);
+    // But aqcuired iterators are only updated during flushEvents()
+    REQUIRE(mecs::utils::count(barIterator) == 0);
+    world.flushEvents();
+    REQUIRE(mecs::utils::count(barIterator) == 1);
+
+    world.destroyEntity(entity);
+    // Entities aren't destroyed until flushEvents
+    REQUIRE(mecs::utils::count(barIterator) == 1);
+    world.flushEvents();
+    // Entities aren't destroyed until flushEvents
+    REQUIRE(mecs::utils::count(barIterator) == 0);
 }
 
 // NOLINTEND this is a test file

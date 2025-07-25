@@ -59,23 +59,23 @@ void mecsRegistryFree(MecsRegistry* registry)
         return;
     }
 
+    registry->prefabs.forEach([&]([[maybe_unused]]
+                                  MecsPrefabID pid,
+                                  MecsPrefab& prefab) {
+        prefab.components.forEach([&](MecsPrefabComponent& component) {
+            component.blob.destroy(registry);
+        });
+        prefab.components.destroy(registry->memAllocator);
+        prefab.archetypeBitset.destroy(registry->memAllocator);
+    });
+    registry->prefabs.destroy(registry->memAllocator);
+
     const MecsSize numComponents = registry->components.count();
     for (MecsSize i = 0; i < numComponents; i++) {
         ComponentInfo& info = registry->components[i];
         mecsFree(registry->memAllocator, info.name);
     }
     registry->components.destroy(registry->memAllocator);
-
-    registry->prefabs.forEach([&]([[maybe_unused]]
-                                  MecsPrefabID pid,
-                                  MecsPrefab& prefab) {
-        prefab.components.forEach([&](MecsPrefabComponent& component) {
-            component.blob.destroy(registry->memAllocator);
-        });
-        prefab.components.destroy(registry->memAllocator);
-        prefab.archetypeBitset.destroy(registry->memAllocator);
-    });
-    registry->prefabs.destroy(registry->memAllocator);
 
     mecsFree(registry->memAllocator, registry);
 }
@@ -174,7 +174,7 @@ void mecsRegistryDestroyPrefab(MecsRegistry* reg, MecsPrefabID prefabID)
     MecsPrefab& prefab = *pPrefab;
 
     prefab.components.forEach([&](MecsPrefabComponent& component) {
-        component.blob.destroy(reg->memAllocator);
+        component.blob.destroy(reg);
     });
     prefab.components.destroy(reg->memAllocator);
 

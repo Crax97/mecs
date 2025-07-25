@@ -267,7 +267,7 @@ public:
     [[nodiscard]]
     T* entityGetComponent(EntityID entity) const
     {
-        return entityGetComponent(entity, RegistrationInfo<T>::getComponentID());
+        return reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID()));
     }
 
     template <typename T>

@@ -323,14 +323,14 @@ void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID enti
     MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
 }
 
-void mecsOnEntityDestroyed(MecsWorld* const& world, MecsEntityID& entityID)
+void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID)
 {
     MecsEntity* ent = world->entities.at(entityID);
     freeEntityRow(world, *ent);
     world->entities.remove(world->memAllocator, entityID);
 }
 
-void mecsOnNewArchetype(MecsWorld* const& world, ArchetypeID archetypeID)
+void mecsOnNewArchetype(MecsWorld* world, ArchetypeID archetypeID)
 {
     Archetype& entArchetype = world->archetypes[archetypeID];
     world->acquiredIterators.forEach([&](MecsIterator* iterator) {
@@ -343,8 +343,7 @@ void mecsOnNewArchetype(MecsWorld* const& world, ArchetypeID archetypeID)
 void mecsWorldFlushEvents(MecsWorld* world)
 {
     MECS_ASSERT(world != nullptr && "Cannot pass a null world");
-    while (!world->newEvents.empty()) {
-        WorldEvent event = world->newEvents.pop();
+    world->newEvents.forEach([&](const WorldEvent& event) {
         switch (event.kind) {
         case WorldEventKind::eNewEntity: {
             mecsOnNewEntitySpawned(world, event.entityID);
@@ -371,7 +370,8 @@ void mecsWorldFlushEvents(MecsWorld* world)
             break;
         }
         }
-    }
+    });
+    world->newEvents.clear();
 }
 
 MecsIterator* mecsWorldAcquireIterator(MecsWorld* world)

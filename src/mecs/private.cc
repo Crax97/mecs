@@ -9,7 +9,8 @@ void* mecsDefaultRealloc(void* userData, void* old, MecsSize oldSize, MecsSize a
 {
     return realloc(old, newSize);
 }
-void mecsDefaultFree(void* userData, void* ptr) { 
+void mecsDefaultFree(void* userData, void* ptr)
+{
     free(ptr);
 }
 
@@ -126,9 +127,16 @@ void* ComponentBlob::get() const
     return static_cast<void*>(mData);
 }
 
-void ComponentBlob::destroy(const MecsAllocator& allocator)
+void ComponentBlob::destroy(const MecsRegistry* registry)
 {
-    mecsFree(allocator, mData);
+    if (mData == nullptr) {
+        return;
+    }
+    const ComponentInfo& componentInfo = registry->components[mComponentID];
+    if (componentInfo.destroy != nullptr) {
+        componentInfo.destroy(mData);
+    }
+    mecsFree(registry->memAllocator, mData);
     mData = nullptr;
 }
 

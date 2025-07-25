@@ -181,7 +181,7 @@ public:
 
     [[nodiscard]]
     void* get() const;
-    void destroy(const MecsAllocator& allocator);
+    void destroy(const MecsRegistry* registry);
     void copyOnto(const MecsRegistry* registry, void* dest) const;
 
     ~ComponentBlob();
