@@ -341,6 +341,7 @@ private:
 template <typename... Args>
 class Iterator {
 public:
+    MECS_CONSTRUCTORS(Iterator)
     ~Iterator()
     {
         release();
