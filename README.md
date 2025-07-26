@@ -286,7 +286,8 @@ Additionally, by default the C++ api automatically registers components using th
 The library is meant to be as easily buildable as possible: just
 ```
 cmake -B build && cmake --build build
-``` should suffice.
+```
+should suffice.
 
 To build the tests, you can run the following commands:
 
