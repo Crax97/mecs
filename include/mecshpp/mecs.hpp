@@ -341,6 +341,7 @@ private:
 template <typename... Args>
 class Iterator {
 public:
+    using TypleType = std::tuple<Args...>;
     MECS_CONSTRUCTORS(Iterator)
     ~Iterator()
     {
@@ -374,7 +375,23 @@ public:
         return World { mecsIteratorGetWorld(mHandle) };
     }
 
-    std::tuple<Args...> get()
+    template <typename Func>
+    void forEach(Func&& func)
+    {
+        begin();
+        while (advance()) {
+            auto value = get();
+            func(value);
+        }
+    }
+    TypleType first()
+    {
+        begin();
+        bool firstFound = advance();
+        MECS_ASSERT(firstFound && "At least one entity must match when calling first()");
+        return get();
+    }
+    TypleType get()
     {
         return detail::getIteratorArguments<Args...>(mHandle, std::make_index_sequence<sizeof...(Args)>());
     }
