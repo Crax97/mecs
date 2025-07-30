@@ -160,6 +160,12 @@ namespace detail {
     {
         return { *static_cast<typename detail::ParameterInfo<Args>::Pointer>(mecsIteratorGetArgument(iterator, I))... };
     }
+
+    template <typename... Args, std::size_t... I, typename Func>
+    void callFuncHelper(const std::tuple<Args...>& values, Func&& func, std::index_sequence<I...> idx)
+    {
+        func(std::forward<Args>(std::get<I>(values))...);
+    }
 }
 
 class PrefabBuilder {
@@ -341,7 +347,7 @@ private:
 template <typename... Args>
 class Iterator {
 public:
-    using TypleType = std::tuple<Args...>;
+    using TupleType = std::tuple<Args...>;
     MECS_CONSTRUCTORS(Iterator)
     ~Iterator()
     {
@@ -381,17 +387,18 @@ public:
         begin();
         while (advance()) {
             auto value = get();
-            func(value);
+            detail::callFuncHelper(value, func, std::make_index_sequence<sizeof...(Args)>());
         }
     }
-    TypleType first()
+
+    TupleType first()
     {
         begin();
         bool firstFound = advance();
         MECS_ASSERT(firstFound && "At least one entity must match when calling first()");
         return get();
     }
-    TypleType get()
+    TupleType get()
     {
         return detail::getIteratorArguments<Args...>(mHandle, std::make_index_sequence<sizeof...(Args)>());
     }
