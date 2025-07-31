@@ -52,7 +52,7 @@
         {                                                                                          \
             return std::formatter<MecsU32>().parse(ctx);                                           \
         }                                                                                          \
-        auto format(mecs::Struct& strukt, format_context& ctx) const                     \
+        auto format(mecs::Struct& strukt, format_context& ctx) const                               \
         {                                                                                          \
             std::ostringstream out;                                                                \
             out << #Struct << " {" << strukt.id() << "}";                                          \
@@ -305,9 +305,9 @@ public:
 
     template <typename T>
     [[nodiscard]]
-    T* entityGetComponent(EntityID entity) const
+    T& entityGetComponent(EntityID entity) const
     {
-        return reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID()));
+        return *reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID()));
     }
 
     template <typename T>
