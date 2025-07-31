@@ -52,7 +52,7 @@
         {                                                                                          \
             return std::formatter<MecsU32>().parse(ctx);                                           \
         }                                                                                          \
-        constexpr auto format(mecs::Struct& strukt, format_context& ctx) const                     \
+        auto format(mecs::Struct& strukt, format_context& ctx) const                     \
         {                                                                                          \
             std::ostringstream out;                                                                \
             out << #Struct << " {" << strukt.id() << "}";                                          \
