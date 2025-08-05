@@ -209,6 +209,7 @@ MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID,
 void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsComponentID component)
 {
     MECS_ASSERT(world && world->registry);
+    MECS_ASSERT(entity != MECS_INVALID && "Invalid entity ID");
     MecsEntity* ent = world->entities.at(entity);
     MECS_ASSERT(ent->status != EntityStatus::eDestroying);
     ComponentInfo info = world->registry->components[component];
@@ -259,6 +260,7 @@ void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsCom
 bool mecsWorldEntityHasComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component)
 {
     MECS_ASSERT(world && world->registry);
+    MECS_ASSERT(entity != MECS_INVALID && "Invalid entity ID");
 
     MecsEntity* ent = world->entities.at(entity);
     ComponentInfo info = world->registry->components[component];
@@ -268,6 +270,7 @@ bool mecsWorldEntityHasComponent(MecsWorld* world, MecsEntityID entity, MecsComp
 void* mecsWorldEntityGetComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component)
 {
     MECS_ASSERT(world && world->registry);
+    MECS_ASSERT(entity != MECS_INVALID && "Invalid entity ID");
 
     MecsEntity* ent = world->entities.at(entity);
     ComponentInfo info = world->registry->components[component];
