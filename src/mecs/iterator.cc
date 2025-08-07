@@ -5,16 +5,25 @@
 
 void mecsIterComponent(MecsIterator* iterator, MecsComponentID component, MecsSize argIndex)
 {
+    mecsIterComponentFilter(iterator, component, MecsIteratorFilter::Access, argIndex);
+}
+void mecsIterComponentFilter(MecsIterator* iterator, MecsComponentID component, MecsIteratorFilter filter, MecsSize argIndex)
+{
     MECS_ASSERT(iterator != nullptr && "Cannot pass a null iterator");
     MECS_ASSERT(iterator->status == IteratorStatus::eInitializing && "Cannot change the arguments of an iterator once it has begun for the first time");
     MecsWorld* world = iterator->world;
     MECS_ASSERT(world);
 
-    iterator->componentSet.set(world->memAllocator, component, true);
+    iterator->componentSet.set(world->memAllocator, component, false);
 
+    if (filter == MecsIteratorFilter::Access || filter == MecsIteratorFilter::With) {
+        iterator->componentSet.set(world->memAllocator, component, true);
+    }
+    if (filter == MecsIteratorFilter::Not) {
+        iterator->blacklistComponentSet.set(world->memAllocator, component, true);
+    }
     iterator->components.ensureSize(world->memAllocator, argIndex + 1);
-    iterator->components[argIndex] = component;
-
+    iterator->components[argIndex] = { .argumentID = component, .filter = filter };
     iterator->dirty = true;
 }
 void mecsIteratorFinalize(MecsIterator* iterator)
@@ -39,6 +48,9 @@ void mecsIteratorFinalize(MecsIterator* iterator)
     } else {
         for (MecsSize i = 0; i < count; i++) {
             const Archetype& archetype = world->archetypes[i];
+            if (iterator->blacklistComponentSet.contains(archetype.storage.bitset())) {
+                continue;
+            }
             if (iterator->componentSet.contains(archetype.storage.bitset())) {
                 iterator->archetypes.push(world->memAllocator, i);
             }
@@ -95,8 +107,11 @@ void* mecsIteratorGetArgument(MecsIterator* iterator, MecsSize argIndex)
     MECS_ASSERT(world);
     ArchetypeID worldArchetypeIndex = iterator->archetypes[iterator->currentArchetype];
     const Archetype& currentArchetype = world->archetypes[worldArchetypeIndex];
-    MecsComponentID component = iterator->components[argIndex];
-    return currentArchetype.storage.getRowComponent(component, iterator->currentRow - 1);
+    MecsIteratorArgument arg = iterator->components[argIndex];
+    if (arg.filter != MecsIteratorFilter::Access) {
+        return nullptr;
+    }
+    return currentArchetype.storage.getRowComponent(arg.argumentID, iterator->currentRow - 1);
 }
 
 MecsWorld* mecsIteratorGetWorld(MecsIterator* iterator)

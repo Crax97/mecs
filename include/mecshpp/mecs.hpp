@@ -10,6 +10,7 @@
 #include <print>
 #include <sstream>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #define MECS_CONSTRUCTORS(Type)            \
@@ -67,6 +68,11 @@ DEFINE_ID(EntityID);
 
 namespace mecs {
 
+template <typename T>
+struct With { };
+template <typename T>
+struct Not { };
+
 namespace detail {
 
     template <typename T>
@@ -89,39 +95,6 @@ namespace detail {
         T* tPtr = reinterpret_cast<T*>(ptr);
         tPtr->~T();
     }
-
-    template <typename T>
-    struct ParameterInfo {
-        using RawType = T::DONT_USE_RAW_TYPES_USE_REFERENCES_OR_POINTERS;
-    };
-
-    template <typename T>
-    struct ParameterInfo<T*> {
-        using RawType = T;
-        using Pointer = T*;
-        constexpr static bool kIsConst = false;
-    };
-
-    template <typename T>
-    struct ParameterInfo<const T*> {
-        using RawType = T;
-        using Pointer = const T*;
-        constexpr static bool kIsConst = true;
-    };
-
-    template <typename T>
-    struct ParameterInfo<T&> {
-        using RawType = T;
-        using Pointer = T*;
-        constexpr static bool kIsConst = false;
-    };
-
-    template <typename T>
-    struct ParameterInfo<const T&> {
-        using RawType = T;
-        using Pointer = const T*;
-        constexpr static bool kIsConst = true;
-    };
 }
 
 template <typename T>
@@ -147,24 +120,122 @@ struct RegistrationInfo {
         return mComponentID;
     }
 };
+namespace detail {
+
+    template <typename T>
+    struct ParameterInfo {
+        using RawType = T::DONT_USE_RAW_TYPES_USE_REFERENCES_OR_POINTERS;
+    };
+
+    template <typename T>
+    struct ParameterInfo<T*> {
+        using RawType = T;
+        using Pointer = T*;
+        constexpr static bool kIsConst = false;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+        }
+        static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return *reinterpret_cast<RawType*>(mecsIteratorGetArgument(iterator, argIndex));
+        }
+    };
+
+    template <typename T>
+    struct ParameterInfo<const T*> {
+        using RawType = T;
+        using Pointer = const T*;
+        constexpr static bool kIsConst = true;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+        }
+        static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return *reinterpret_cast<RawType*>(mecsIteratorGetArgument(iterator, argIndex));
+        }
+    };
+
+    template <typename T>
+    struct ParameterInfo<T&> {
+        using RawType = T;
+        using Pointer = T*;
+        constexpr static bool kIsConst = false;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+        }
+        static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return *reinterpret_cast<RawType*>(mecsIteratorGetArgument(iterator, argIndex));
+        }
+    };
+
+    template <typename T>
+    struct ParameterInfo<const T&> {
+        using RawType = T;
+        using Pointer = const T*;
+        constexpr static bool kIsConst = true;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+        }
+        static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return *reinterpret_cast<RawType*>(mecsIteratorGetArgument(iterator, argIndex));
+        }
+    };
+
+    template <typename T>
+    struct ParameterInfo<With<T>> {
+        using RawType = std::remove_reference_t<std::remove_const_t<T>>;
+        using Pointer = nullptr_t;
+        constexpr static bool kIsConst = true;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::With, argIndex);
+        }
+
+        static With<T> getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return {};
+        }
+    };
+    template <typename T>
+    struct ParameterInfo<Not<T>> {
+        using RawType = std::remove_reference_t<std::remove_const_t<T>>;
+        using Pointer = nullptr_t;
+        constexpr static bool kIsConst = true;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Not, argIndex);
+        }
+
+        static Not<T> getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return {};
+        }
+    };
+}
 
 namespace detail {
     template <typename... Args, std::size_t... I>
     void initIterator(MecsIterator* iterator, std::index_sequence<I...> idx)
     {
-        (mecsIterComponent(iterator, RegistrationInfo<typename detail::ParameterInfo<Args>::RawType>::getComponentID().id(), I), ...);
+        (detail::ParameterInfo<Args>::addArgument(iterator, I), ...);
     }
 
     template <typename... Args, std::size_t... I>
     std::tuple<Args...> getIteratorArguments(MecsIterator* iterator, std::index_sequence<I...> idx)
     {
-        return { *static_cast<typename detail::ParameterInfo<Args>::Pointer>(mecsIteratorGetArgument(iterator, I))... };
+        return { detail::ParameterInfo<Args>::getArgument(iterator, I)... };
     }
 
     template <typename... Args, std::size_t... I, typename Func>
     void callFuncHelper(const std::tuple<Args...>& values, Func&& func, std::index_sequence<I...> idx)
     {
-        func(std::forward<Args>(std::get<I>(values))...);
+        func(std::get<I>(values)...);
     }
 }
 

@@ -23,6 +23,43 @@ void freeEntityRow(MecsWorld* const world, const MecsEntity& ent)
     }
 }
 
+void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID)
+{
+    MecsEntity* ent = world->entities.at(entityID);
+    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
+
+    ent->status = EntityStatus::eSpawned;
+}
+
+void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID component)
+{
+    MecsEntity* ent = world->entities.at(entityID);
+    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
+}
+
+void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID component)
+{
+    MecsEntity* ent = world->entities.at(entityID);
+    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
+}
+
+void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID)
+{
+    MecsEntity* ent = world->entities.at(entityID);
+    freeEntityRow(world, *ent);
+    world->entities.remove(world->memAllocator, entityID);
+}
+
+void mecsOnNewArchetype(MecsWorld* world, ArchetypeID archetypeID)
+{
+    Archetype& entArchetype = world->archetypes[archetypeID];
+    world->acquiredIterators.forEach([&](MecsIterator* iterator) {
+        if (iterator->componentSet.contains(entArchetype.storage.bitset())) {
+            iterator->archetypes.pushUnique(world->memAllocator, archetypeID);
+        }
+    });
+}
+
 ArchetypeID findArchetype(MecsWorld* world, const BitSet& archetypeBitset)
 {
     if (archetypeBitset.allZeroes()) {
@@ -116,6 +153,7 @@ void mecsIteratorReleaseResources(const MecsAllocator& alloc, MecsIterator* iter
 {
     iter->components.destroy(alloc);
     iter->componentSet.destroy(alloc);
+    iter->blacklistComponentSet.destroy(alloc);
     iter->archetypes.destroy(alloc);
     mecsFree(alloc, iter);
 }
@@ -286,6 +324,9 @@ void mecsWorldRemoveComponent(MecsWorld* world, MecsEntityID entity, MecsCompone
 
     MecsEntity* ent = world->entities.at(entity);
     ArchetypeID newArchetypeID = findNewArchetype(world, ent->archetype, component, false);
+    if (ent->archetype == newArchetypeID) {
+        return; // The entity does not have the component;
+    }
     moveEntityToNewArchetype(world, entity, newArchetypeID);
     world->newEvents.push(world->memAllocator, WorldEvent {
                                                    .kind = WorldEventKind::eDestroyComponent,
@@ -304,43 +345,6 @@ void mecsWorldDestroyEntity(MecsWorld* const world, MecsEntityID entityID)
                                                    .kind = WorldEventKind::eDestroyEntity,
                                                    .entityID = entityID,
                                                });
-}
-
-void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID)
-{
-    MecsEntity* ent = world->entities.at(entityID);
-    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
-
-    ent->status = EntityStatus::eSpawned;
-}
-
-void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID component)
-{
-    MecsEntity* ent = world->entities.at(entityID);
-    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
-}
-
-void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID component)
-{
-    MecsEntity* ent = world->entities.at(entityID);
-    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
-}
-
-void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID)
-{
-    MecsEntity* ent = world->entities.at(entityID);
-    freeEntityRow(world, *ent);
-    world->entities.remove(world->memAllocator, entityID);
-}
-
-void mecsOnNewArchetype(MecsWorld* world, ArchetypeID archetypeID)
-{
-    Archetype& entArchetype = world->archetypes[archetypeID];
-    world->acquiredIterators.forEach([&](MecsIterator* iterator) {
-        if (iterator->componentSet.contains(entArchetype.storage.bitset())) {
-            iterator->archetypes.pushUnique(world->memAllocator, archetypeID);
-        }
-    });
 }
 
 void mecsWorldFlushEvents(MecsWorld* world)
@@ -402,6 +406,7 @@ void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator)
 
     iterator->components.clear();
     iterator->componentSet.clear();
+    iterator->blacklistComponentSet.clear();
     iterator->archetypes.clear();
     world->reusableIterators.push(world->memAllocator, iterator);
     bool removed = world->acquiredIterators.remove(iterator);

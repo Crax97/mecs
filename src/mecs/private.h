@@ -80,16 +80,16 @@ enum class ArgumentType : MecsU8 {
 };
 
 struct MecsIteratorArgument {
-    ArgumentType argumentType;
     MecsComponentID argumentID;
-    ArgumentAccess argumentAccess = ArgumentAccess::eInOut;
+    MecsIteratorFilter filter;
 };
 
 struct MecsWorldIterator_t {
     bool dirty = true;
     MecsWorld* world { nullptr };
     BitSet componentSet;
-    MecsVec<MecsComponentID> components;
+    BitSet blacklistComponentSet;
+    MecsVec<MecsIteratorArgument> components;
     MecsVec<ArchetypeID> archetypes;
     MecsSize currentArchetype { 0 };
     MecsSize currentRow { 0 };

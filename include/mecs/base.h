@@ -104,5 +104,12 @@ typedef struct MecsPrefabInfo {
     const char* name;
 
 } MecsPrefabInfo;
+
+enum MecsIteratorFilter {
+    Access, // Retrieves a pointer to the component
+    With, // Only checks if the entity has the component, retrieval returns nullptr
+    Not, // Only selects entities without this component, retrieval returns nullptr
+};
+
 /// NOLINTEND
 MECS_ENDEXTERNCPP()
