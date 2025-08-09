@@ -126,6 +126,19 @@ namespace detail {
     struct ParameterInfo {
         using RawType = T::DONT_USE_RAW_TYPES_USE_REFERENCES_OR_POINTERS;
     };
+    template <>
+    struct ParameterInfo<mecs::EntityID> {
+        using RawType = mecs::EntityID;
+        using Pointer = mecs::EntityID*;
+        constexpr static bool kIsConst = true;
+        static void addArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+        }
+        static RawType getArgument(MecsIterator* iterator, MecsSize argIndex)
+        {
+            return { mecsIteratorGetEntity(iterator) };
+        }
+    };
 
     template <typename T>
     struct ParameterInfo<T*> {
