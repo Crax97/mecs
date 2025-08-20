@@ -412,3 +412,9 @@ void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator)
     bool removed = world->acquiredIterators.remove(iterator);
     MECS_ASSERT(removed);
 }
+
+MecsRegistry* mecsWorldGetRegistry(MecsWorld* world)
+{
+    MECS_ASSERT(world != nullptr && "World must not be null");
+    return world->registry;
+}

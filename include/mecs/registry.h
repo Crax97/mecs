@@ -14,4 +14,9 @@ void* MECS_API mecsRegistryPrefabGetComponent(MecsRegistry* reg, MecsPrefabID pr
 void MECS_API mecsRegistryPrefabRemoveComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID);
 void MECS_API mecsRegistryDestroyPrefab(MecsRegistry* reg, MecsPrefabID prefabID);
 
+MecsSize MECS_API mecsRegistryGetNumComponents(MecsRegistry* reg);
+MecsComponentID MECS_API mecsGetComponentIDByIndex(MecsRegistry* reg, MecsSize index);
+const MECS_API ComponentInfo* mecsGetComponentInfoByIndex(MecsRegistry* reg, MecsSize index);
+const MECS_API ComponentInfo* mecsGetComponentInfoByID(MecsRegistry* reg, MecsComponentID componentID);
+
 MECS_ENDEXTERNCPP()

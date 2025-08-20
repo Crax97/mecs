@@ -52,6 +52,7 @@ if(MECS_COMPILE_TESTS)
         tests/prefabs.cc
         tests/test_private.cc
         tests/samples.cc
+        tests/reflection.cc
     )
 
     target_include_directories(mecs_tests PRIVATE src/mecs)

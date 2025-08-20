@@ -71,6 +71,17 @@ typedef struct MecsWorldCreateInfo {
     MecsAllocator memAllocator;
 } MecsWorldCreateInfo;
 
+typedef struct MecsComponentMember {
+    // Must be a valid component ID
+    MecsComponentID componentID;
+
+    // Offset of the member in the component
+    MecsSize offset;
+
+    // Must not be null
+    const char* name;
+} MecsComponentMember;
+
 typedef struct ComponentInfo {
     // Must not be null and unique among all components registered
     const char* name;
@@ -80,6 +91,12 @@ typedef struct ComponentInfo {
 
     // Must be greater than zero
     MecsSize align;
+
+    // Number of child members
+    MecsSize memberCount;
+
+    // Can be null only when memberCount is 0: in that case, the field is ignored
+    MecsComponentMember* members;
 
     // Can be null, called when this component is added to an entity
     // to initialize the component

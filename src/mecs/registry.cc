@@ -180,3 +180,25 @@ void mecsRegistryDestroyPrefab(MecsRegistry* reg, MecsPrefabID prefabID)
 
     reg->prefabs.remove(reg->memAllocator, prefabID);
 }
+
+MecsSize mecsRegistryGetNumComponents(MecsRegistry* reg)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    return reg->components.count();
+}
+MecsComponentID mecsGetComponentIDByIndex(MecsRegistry* reg, MecsSize index)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    MECS_ASSERT(reg->components.isValid(index) && "Invalid index");
+    return static_cast<MecsComponentID>(index);
+}
+const ComponentInfo* mecsGetComponentInfoByIndex(MecsRegistry* reg, MecsSize index)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    return reg->components.atPtr(index);
+}
+const ComponentInfo* mecsGetComponentInfoByID(MecsRegistry* reg, MecsComponentID componentID)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    return reg->components.atPtr(componentID);
+}
