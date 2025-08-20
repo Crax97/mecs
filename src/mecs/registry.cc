@@ -37,9 +37,13 @@ mecsRegistryAddRegistration(MecsRegistry* reg,
     MecsSize elementCount = reg->components.count();
     for (MecsSize i = 0; i < elementCount; i++) {
         ComponentInfo& info = reg->components[i];
-        if (mecsStrEqual(info.name, vtable->name)) {
-            updateComponentInfo(info, *vtable);
-            return static_cast<MecsComponentID>(i);
+        if (info.typeID == vtable->typeID) {
+
+            if (mecsStrEqual(info.name, vtable->name)) {
+                updateComponentInfo(info, *vtable);
+                return static_cast<MecsComponentID>(i);
+            }
+            MECS_ASSERT(false && "Another component with this typeID was registered, but it was registered under a different name, thus it's considered different");
         }
     }
 
@@ -192,13 +196,36 @@ MecsComponentID mecsGetComponentIDByIndex(MecsRegistry* reg, MecsSize index)
     MECS_ASSERT(reg->components.isValid(index) && "Invalid index");
     return static_cast<MecsComponentID>(index);
 }
+MecsComponentID mecsGetComponentIDByTypeID(MecsRegistry* reg, MecsTypeID typeID)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    for (MecsSize i = 0; i < reg->components.count(); i++) {
+        const ComponentInfo& info = reg->components[i];
+        if (info.typeID == typeID) {
+            return static_cast<MecsComponentID>(i);
+        }
+    }
+    return MECS_INVALID;
+}
 const ComponentInfo* mecsGetComponentInfoByIndex(MecsRegistry* reg, MecsSize index)
 {
     MECS_ASSERT(reg != nullptr && "reg must not be null");
     return reg->components.atPtr(index);
 }
-const ComponentInfo* mecsGetComponentInfoByID(MecsRegistry* reg, MecsComponentID componentID)
+const ComponentInfo* mecsGetComponentInfoByComponentID(MecsRegistry* reg, MecsComponentID componentID)
 {
     MECS_ASSERT(reg != nullptr && "reg must not be null");
     return reg->components.atPtr(componentID);
+}
+const ComponentInfo* mecsGetComponentInfoByTypeID(MecsRegistry* reg, MecsTypeID typeID)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    for (MecsSize i = 0; i < reg->components.count(); i++) {
+        const ComponentInfo& info = reg->components[i];
+        if (info.typeID == typeID) {
+            return &info;
+        }
+    }
+
+    return nullptr;
 }

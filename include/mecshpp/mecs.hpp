@@ -6,6 +6,8 @@
 #include "mecs/registry.h"
 #include "mecs/world.h"
 
+#include "mecsrtti.hpp"
+
 #include <compare>
 #include <print>
 #include <sstream>
@@ -98,26 +100,27 @@ namespace detail {
 }
 
 template <typename T>
+    requires(mecs::HasRTTI<T>)
 struct RegistrationInfo {
-    inline static ComponentID mComponentID;
-
-    static void init(MecsRegistry* reg, const char* name)
+    static MecsComponentID init(MecsRegistry* reg, const char* name)
     {
         static ComponentInfo gComponentInfo {
             .name = name,
+            .typeID = rttiOf<T>::kTypeID,
             .size = sizeof(T),
             .align = alignof(T),
             .init = mecs::detail::init<T>,
             .copy = mecs::detail::copy<T>,
             .destroy = mecs::detail::destroy<T>,
         };
-        mComponentID = { mecsRegistryAddRegistration(reg, &gComponentInfo) };
+        return mecsRegistryAddRegistration(reg, &gComponentInfo);
     }
 
-    static ComponentID getComponentID()
+    static ComponentID getComponentID(MecsRegistry* reg)
     {
-        MECS_ASSERT(mComponentID != ComponentID::invalid() && "Component was not registered");
-        return mComponentID;
+        mecs::ComponentID compID = { mecsGetComponentIDByTypeID(reg, rttiOf<T>::kTypeID) };
+        MECS_ASSERT(compID.isValid());
+        return compID;
     }
 };
 namespace detail {
@@ -147,7 +150,7 @@ namespace detail {
         constexpr static bool kIsConst = false;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
-            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID(mecsWorldGetRegistry(mecsIteratorGetWorld(iterator))).id(), MecsIteratorFilter::Access, argIndex);
         }
         static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
         {
@@ -162,7 +165,7 @@ namespace detail {
         constexpr static bool kIsConst = true;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
-            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID(mecsWorldGetRegistry(mecsIteratorGetWorld(iterator))).id(), MecsIteratorFilter::Access, argIndex);
         }
         static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
         {
@@ -177,7 +180,7 @@ namespace detail {
         constexpr static bool kIsConst = false;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
-            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID(mecsWorldGetRegistry(mecsIteratorGetWorld(iterator))).id(), MecsIteratorFilter::Access, argIndex);
         }
         static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
         {
@@ -192,7 +195,7 @@ namespace detail {
         constexpr static bool kIsConst = true;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
-            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID(mecsWorldGetRegistry(mecsIteratorGetWorld(iterator))).id(), MecsIteratorFilter::Access, argIndex);
         }
         static RawType& getArgument(MecsIterator* iterator, MecsSize argIndex)
         {
@@ -207,7 +210,7 @@ namespace detail {
         constexpr static bool kIsConst = true;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
-            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::With, argIndex);
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID(mecsWorldGetRegistry(mecsIteratorGetWorld(iterator))).id(), MecsIteratorFilter::With, argIndex);
         }
 
         static With<T> getArgument(MecsIterator* iterator, MecsSize argIndex)
@@ -222,7 +225,7 @@ namespace detail {
         constexpr static bool kIsConst = true;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
-            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Not, argIndex);
+            mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID(mecsWorldGetRegistry(mecsIteratorGetWorld(iterator))).id(), MecsIteratorFilter::Not, argIndex);
         }
 
         static Not<T> getArgument(MecsIterator* iterator, MecsSize argIndex)
@@ -258,7 +261,7 @@ public:
     PrefabBuilder& withComponent(Args&&... args)
     {
         T defaultVal = T(std::forward<Args>(args)...);
-        mecsRegistryPrefabAddComponentWithDefaults(mHandleistry, mPrefabID, RegistrationInfo<T>::getComponentID().id(), &defaultVal);
+        mecsRegistryPrefabAddComponentWithDefaults(mHandle, mPrefabID, RegistrationInfo<T>::getComponentID(mHandle).id(), &defaultVal);
         return *this;
     }
 
@@ -270,11 +273,11 @@ public:
 private:
     friend class Registry;
     PrefabBuilder(MecsRegistry* reg, MecsPrefabID prefab)
-        : mHandleistry(reg)
+        : mHandle(reg)
         , mPrefabID(prefab)
     {
     }
-    MecsRegistry* mHandleistry;
+    MecsRegistry* mHandle;
     MecsPrefabID mPrefabID;
 };
 
@@ -284,7 +287,7 @@ public:
     EntityBuilder& setComponent(Args&&... args)
     {
         T val = T(std::forward<Args>(args)...);
-        T* ptr = reinterpret_cast<T*>(mecsWorldEntityGetComponent(mWorld, mEntityID, RegistrationInfo<T>::getComponentID().id()));
+        T* ptr = reinterpret_cast<T*>(mecsWorldEntityGetComponent(mWorld, mEntityID, RegistrationInfo<T>::getComponentID(mecsWorldGetRegistry(mWorld)).id()));
         *ptr = std::move(val);
         return *this;
     }
@@ -293,7 +296,7 @@ public:
     EntityBuilder& withComponent(Args&&... args)
     {
         T defaultVal = T(std::forward<Args>(args)...);
-        T* ptr = reinterpret_cast<T*>(mecsWorldAddComponent(mWorld, mEntityID, RegistrationInfo<T>::getComponentID().id()));
+        T* ptr = reinterpret_cast<T*>(mecsWorldAddComponent(mWorld, mEntityID, RegistrationInfo<T>::getComponentID(mecsWorldGetRegistry(mWorld)).id()));
         *ptr = std::move(defaultVal);
         return *this;
     }
@@ -330,25 +333,25 @@ public:
 
     template <typename T>
     ComponentID addRegistration(const char* name)
+        requires(HasRTTI<T>)
     {
-        RegistrationInfo<T>::init(mHandle, name);
-        return RegistrationInfo<T>::getComponentID();
+        return { RegistrationInfo<T>::init(mHandle, name) };
     }
 
     template <typename T>
     void addPrefabComponent(PrefabID prefab, const T& defaultValue)
     {
-        addPrefabComponent(prefab, RegistrationInfo<T>::getComponentID(), static_cast<const void*>(&defaultValue));
+        addPrefabComponent(prefab, RegistrationInfo<T>::getComponentID(mHandle), static_cast<const void*>(&defaultValue));
     }
     template <typename T>
     T* getPrefabComponent(PrefabID prefab)
     {
-        return static_cast<T*>(getPrefabComponent(prefab, RegistrationInfo<T>::getComponentID()));
+        return static_cast<T*>(getPrefabComponent(prefab, RegistrationInfo<T>::getComponentID(mHandle)));
     }
     template <typename T>
     T* removePrefabComponent(PrefabID prefab)
     {
-        return removePrefabComponent(prefab, RegistrationInfo<T>::getComponentID());
+        return removePrefabComponent(prefab, RegistrationInfo<T>::getComponentID(mHandle));
     }
 
     [[nodiscard]]
@@ -384,26 +387,26 @@ public:
     [[nodiscard]]
     bool entityHasComponent(EntityID entity) const
     {
-        return entityHasComponent(entity, RegistrationInfo<T>::getComponentID());
+        return entityHasComponent(entity, RegistrationInfo<T>::getComponentID(mHandle));
     }
 
     template <typename T>
     [[nodiscard]]
     T& entityGetComponent(EntityID entity) const
     {
-        return *reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID()));
+        return *reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID(mHandle)));
     }
 
     template <typename T>
     void entityAddComponent(EntityID entity)
     {
-        entityAddComponent(entity, RegistrationInfo<T>::getComponentID());
+        entityAddComponent(entity, RegistrationInfo<T>::getComponentID(mHandle));
     }
 
     template <typename T>
     void entityRemoveComponent(EntityID entity)
     {
-        return entityRemoveComponent(entity, RegistrationInfo<T>::getComponentID());
+        return entityRemoveComponent(entity, RegistrationInfo<T>::getComponentID(mHandle));
     }
 
     template <typename... Args>

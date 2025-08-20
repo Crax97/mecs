@@ -16,7 +16,7 @@
 #else
 #define MECS_ALIGN_OF _Alignof
 #endif
-#define MECS_COMPONENTINFO(T) { .name = #T, .size = sizeof(T), .align = MECS_ALIGN_OF(T) }
+#define MECS_COMPONENTINFO(T) { .name = #T, .typeID = __COUNTER__, .size = sizeof(T), .align = MECS_ALIGN_OF(T) }
 
 #define MECS_REGISTER_COMPONENT(reg, T)                          \
     static MecsComponentID Component_##T = MECS_INVALID;         \
@@ -30,6 +30,7 @@ MECS_EXTERNCPP()
 
 typedef uint8_t MecsU8;
 typedef uint32_t MecsU32;
+typedef uint64_t MecsTypeID;
 typedef size_t MecsSize;
 
 typedef MecsU32 MecsEntityID;
@@ -72,8 +73,8 @@ typedef struct MecsWorldCreateInfo {
 } MecsWorldCreateInfo;
 
 typedef struct MecsComponentMember {
-    // Must be a valid component ID
-    MecsComponentID componentID;
+    // Must be a valid ID
+    MecsTypeID typeID;
 
     // Offset of the member in the component
     MecsSize offset;
@@ -83,8 +84,12 @@ typedef struct MecsComponentMember {
 } MecsComponentMember;
 
 typedef struct ComponentInfo {
-    // Must not be null and unique among all components registered
+    // Must not be null
     const char* name;
+
+    // Must be unique among all components in the registry: if a component has the same typeID and name of another registered type,
+    // the older type will be replaced
+    MecsTypeID typeID;
 
     // Must be greater than zero
     MecsSize size;

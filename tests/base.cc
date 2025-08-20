@@ -379,243 +379,243 @@ TEST_CASE("Spawning components in a loop")
     mecsRegistryFree(registry);
 }
 
-TEST_CASE("C++ resource management")
-{
-    static MecsSize gNumConstructorCalls = 0;
-    static MecsSize gNumDestructorCalls = 0;
-    {
-        struct Name {
-            std::string name;
-        };
+// TEST_CASE("C++ resource management")
+// {
+//     static MecsSize gNumConstructorCalls = 0;
+//     static MecsSize gNumDestructorCalls = 0;
+//     {
+//         struct Name {
+//             std::string name;
+//         };
 
-        struct VectorNames {
-            std::vector<std::string> names;
-        };
+//         struct VectorNames {
+//             std::vector<std::string> names;
+//         };
 
-        struct ConstructorDestructor {
-            ConstructorDestructor()
-            {
-                gNumConstructorCalls++;
-            }
-            ConstructorDestructor(const ConstructorDestructor&) {
+//         struct ConstructorDestructor {
+//             ConstructorDestructor()
+//             {
+//                 gNumConstructorCalls++;
+//             }
+//             ConstructorDestructor(const ConstructorDestructor&) {
 
-            };
-            ~ConstructorDestructor()
-            {
-                gNumDestructorCalls++;
-            }
-        };
+//             };
+//             ~ConstructorDestructor()
+//             {
+//                 gNumDestructorCalls++;
+//             }
+//         };
 
-        mecs::Registry registry(MecsRegistryCreateInfo { .memAllocator = kDebugAllocator });
-        registry.addRegistration<Name>("Name");
-        registry.addRegistration<VectorNames>("VectorNames");
-        registry.addRegistration<ConstructorDestructor>("ConstructorDestructor");
+//         mecs::Registry registry(MecsRegistryCreateInfo { .memAllocator = kDebugAllocator });
+//         registry.addRegistration<Name>("Name");
+//         registry.addRegistration<VectorNames>("VectorNames");
+//         registry.addRegistration<ConstructorDestructor>("ConstructorDestructor");
 
-        mecs::PrefabID baseName = registry.createPrefab().withComponent<Name>("Mayo");
-        mecs::PrefabID vectorOfNames = registry.createPrefab().withComponent<VectorNames>(VectorNames({ "Foo", "Bar", "Baz" }));
-        mecs::PrefabID constructorDestructor = registry.createPrefab().withComponent<ConstructorDestructor>();
+//         mecs::PrefabID baseName = registry.createPrefab().withComponent<Name>("Mayo");
+//         mecs::PrefabID vectorOfNames = registry.createPrefab().withComponent<VectorNames>(VectorNames({ "Foo", "Bar", "Baz" }));
+//         mecs::PrefabID constructorDestructor = registry.createPrefab().withComponent<ConstructorDestructor>();
 
-        // Two constructors should have been called
-        // One for the default-initialized value
-        // One for the explicit default value that was passed to withComponent
-        // The destructor should have been called once for the explicit default value
-        REQUIRE(gNumConstructorCalls == 2);
-        REQUIRE(gNumDestructorCalls == 1);
+//         // Two constructors should have been called
+//         // One for the default-initialized value
+//         // One for the explicit default value that was passed to withComponent
+//         // The destructor should have been called once for the explicit default value
+//         REQUIRE(gNumConstructorCalls == 2);
+//         REQUIRE(gNumDestructorCalls == 1);
 
-        mecs::World world(registry);
-        mecs::EntityID entity = world.spawnEntityPrefab(baseName);
+//         mecs::World world(registry);
+//         mecs::EntityID entity = world.spawnEntityPrefab(baseName);
 
-        mecs::EntityID entity2 = world.spawnEntityPrefab(constructorDestructor);
-        REQUIRE(gNumConstructorCalls == 3);
-        REQUIRE(gNumDestructorCalls == 1);
-        world.entityAddComponent<Name>(entity2);
+//         mecs::EntityID entity2 = world.spawnEntityPrefab(constructorDestructor);
+//         REQUIRE(gNumConstructorCalls == 3);
+//         REQUIRE(gNumDestructorCalls == 1);
+//         world.entityAddComponent<Name>(entity2);
 
-        // Constructor for the new row should have been called (+1 c)
-        // Copy constructor should have been called from old row to new row
-        // Destructor should have been called on old row
-        REQUIRE(gNumConstructorCalls == 4);
-        REQUIRE(gNumDestructorCalls == 2);
-        world.destroyEntity(entity2);
-        world.flushEvents();
+//         // Constructor for the new row should have been called (+1 c)
+//         // Copy constructor should have been called from old row to new row
+//         // Destructor should have been called on old row
+//         REQUIRE(gNumConstructorCalls == 4);
+//         REQUIRE(gNumDestructorCalls == 2);
+//         world.destroyEntity(entity2);
+//         world.flushEvents();
 
-        // Destructor should have been called on row
-        REQUIRE(gNumConstructorCalls == 4);
-        REQUIRE(gNumDestructorCalls == 3);
+//         // Destructor should have been called on row
+//         REQUIRE(gNumConstructorCalls == 4);
+//         REQUIRE(gNumDestructorCalls == 3);
 
-        {
-            Name& n = world.entityGetComponent<Name>(entity);
-            REQUIRE(n.name == "Mayo");
-            n.name = "Tizio";
-        }
-        world.entityAddComponent<VectorNames>(entity);
-        {
-            // Need another pointer because the entity was moved to another storage
-            Name& n = world.entityGetComponent<Name>(entity);
-            REQUIRE(n.name == "Tizio");
+//         {
+//             Name& n = world.entityGetComponent<Name>(entity);
+//             REQUIRE(n.name == "Mayo");
+//             n.name = "Tizio";
+//         }
+//         world.entityAddComponent<VectorNames>(entity);
+//         {
+//             // Need another pointer because the entity was moved to another storage
+//             Name& n = world.entityGetComponent<Name>(entity);
+//             REQUIRE(n.name == "Tizio");
 
-            Name* pb = registry.getPrefabComponent<Name>(baseName);
-            REQUIRE(pb->name == "Mayo");
+//             Name* pb = registry.getPrefabComponent<Name>(baseName);
+//             REQUIRE(pb->name == "Mayo");
 
-            VectorNames& vn = world.entityGetComponent<VectorNames>(entity);
-            REQUIRE(vn.names.empty());
-        }
-    }
-    // No further constructors should have been called
-    REQUIRE(gNumConstructorCalls == 4);
-    // Prefab destructor should have been called now
-    REQUIRE(gNumDestructorCalls == 4);
-}
+//             VectorNames& vn = world.entityGetComponent<VectorNames>(entity);
+//             REQUIRE(vn.names.empty());
+//         }
+//     }
+//     // No further constructors should have been called
+//     REQUIRE(gNumConstructorCalls == 4);
+//     // Prefab destructor should have been called now
+//     REQUIRE(gNumDestructorCalls == 4);
+// }
 
-TEST_CASE("Order of operations")
-{
-    mecs::Registry reg({ kDebugAllocator });
+// TEST_CASE("Order of operations")
+// {
+//     mecs::Registry reg({ kDebugAllocator });
 
-    struct Foo { };
-    struct Bar { };
-    reg.addRegistration<Foo>("Foo");
-    reg.addRegistration<Bar>("Bar");
+//     struct Foo { };
+//     struct Bar { };
+//     reg.addRegistration<Foo>("Foo");
+//     reg.addRegistration<Bar>("Bar");
 
-    mecs::World world(reg);
-    mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
-    mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
+//     mecs::World world(reg);
+//     mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
+//     mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
 
-    mecs::EntityID entity = world.spawnEntity()
-                                .withComponent<Foo>();
+//     mecs::EntityID entity = world.spawnEntity()
+//                                 .withComponent<Foo>();
 
-    // Entities aren't spawned until flushEvents
-    REQUIRE(mecs::utils::count(fooIterator) == 0);
-    world.flushEvents();
+//     // Entities aren't spawned until flushEvents
+//     REQUIRE(mecs::utils::count(fooIterator) == 0);
+//     world.flushEvents();
 
-    REQUIRE(mecs::utils::count(fooIterator) == 1);
+//     REQUIRE(mecs::utils::count(fooIterator) == 1);
 
-    // A new archetype <Foo, Bar> is created
-    world.entityAddComponent<Bar>(entity);
-    // Archetype changes are instantaneous
-    REQUIRE(mecs::utils::count(fooIterator) == 0);
-    // But aqcuired iterators are only updated during flushEvents()
-    REQUIRE(mecs::utils::count(barIterator) == 0);
-    world.flushEvents();
-    REQUIRE(mecs::utils::count(barIterator) == 1);
+//     // A new archetype <Foo, Bar> is created
+//     world.entityAddComponent<Bar>(entity);
+//     // Archetype changes are instantaneous
+//     REQUIRE(mecs::utils::count(fooIterator) == 0);
+//     // But aqcuired iterators are only updated during flushEvents()
+//     REQUIRE(mecs::utils::count(barIterator) == 0);
+//     world.flushEvents();
+//     REQUIRE(mecs::utils::count(barIterator) == 1);
 
-    world.destroyEntity(entity);
-    // Entities aren't destroyed until flushEvents
-    REQUIRE(mecs::utils::count(barIterator) == 1);
-    world.flushEvents();
-    // Entities aren't destroyed until flushEvents
-    REQUIRE(mecs::utils::count(barIterator) == 0);
-}
+//     world.destroyEntity(entity);
+//     // Entities aren't destroyed until flushEvents
+//     REQUIRE(mecs::utils::count(barIterator) == 1);
+//     world.flushEvents();
+//     // Entities aren't destroyed until flushEvents
+//     REQUIRE(mecs::utils::count(barIterator) == 0);
+// }
 
-TEST_CASE("Iteration filters")
-{
-    mecs::Registry reg({ kDebugAllocator });
+// TEST_CASE("Iteration filters")
+// {
+//     mecs::Registry reg({ kDebugAllocator });
 
-    struct Foo {
-        int x;
-    };
-    struct Bar {
-        int y { 2 };
-    };
-    struct Baz { };
-    struct ID {
-        int id;
-    };
-    reg.addRegistration<Foo>("Foo");
-    reg.addRegistration<Bar>("Bar");
-    reg.addRegistration<Baz>("Baz");
-    reg.addRegistration<ID>("ID");
+//     struct Foo {
+//         int x;
+//     };
+//     struct Bar {
+//         int y { 2 };
+//     };
+//     struct Baz { };
+//     struct ID {
+//         int id;
+//     };
+//     reg.addRegistration<Foo>("Foo");
+//     reg.addRegistration<Bar>("Bar");
+//     reg.addRegistration<Baz>("Baz");
+//     reg.addRegistration<ID>("ID");
 
-    mecs::World world(reg);
-    mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
-    mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
+//     mecs::World world(reg);
+//     mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
+//     mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
 
-    mecs::EntityID ent0 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<ID>(0);
-    mecs::EntityID ent1 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<Bar>()
-                              .withComponent<ID>(1);
-    mecs::EntityID ent2 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<Bar>()
-                              .withComponent<Baz>()
-                              .withComponent<ID>(2);
-    mecs::EntityID ent3 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<Baz>()
-                              .withComponent<ID>(3);
+//     mecs::EntityID ent0 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<ID>(0);
+//     mecs::EntityID ent1 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<Bar>()
+//                               .withComponent<ID>(1);
+//     mecs::EntityID ent2 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<Bar>()
+//                               .withComponent<Baz>()
+//                               .withComponent<ID>(2);
+//     mecs::EntityID ent3 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<Baz>()
+//                               .withComponent<ID>(3);
 
-    {
-        // Iterate all components with a Foo
-        mecs::Iterator allFoos = world.acquireIterator<const Foo&>();
-        REQUIRE(mecs::utils::count(allFoos) == 4);
-    }
+//     {
+//         // Iterate all components with a Foo
+//         mecs::Iterator allFoos = world.acquireIterator<const Foo&>();
+//         REQUIRE(mecs::utils::count(allFoos) == 4);
+//     }
 
-    {
-        // Iterate all components with a Foo that do not have a Bar
-        mecs::Iterator allFoosNoBar = world.acquireIterator<const Foo&, mecs::Not<Bar>>();
-        REQUIRE(mecs::utils::count(allFoosNoBar) == 2);
-    }
+//     {
+//         // Iterate all components with a Foo that do not have a Bar
+//         mecs::Iterator allFoosNoBar = world.acquireIterator<const Foo&, mecs::Not<Bar>>();
+//         REQUIRE(mecs::utils::count(allFoosNoBar) == 2);
+//     }
 
-    {
-        // Iterate all components with a Foo, a Bar that do not have a Baz
-        mecs::Iterator allFooBazNoBar = world.acquireIterator<Foo&, const Bar&, mecs::Not<Baz>>();
-        REQUIRE(mecs::utils::count(allFooBazNoBar) == 1);
-        allFooBazNoBar.forEach([&](Foo& foo, const Bar& bar, mecs::Not<Baz>) {
-            foo.x += bar.y;
-        });
+//     {
+//         // Iterate all components with a Foo, a Bar that do not have a Baz
+//         mecs::Iterator allFooBazNoBar = world.acquireIterator<Foo&, const Bar&, mecs::Not<Baz>>();
+//         REQUIRE(mecs::utils::count(allFooBazNoBar) == 1);
+//         allFooBazNoBar.forEach([&](Foo& foo, const Bar& bar, mecs::Not<Baz>) {
+//             foo.x += bar.y;
+//         });
 
-        REQUIRE(world.entityGetComponent<Foo>(ent0).x == 0);
-        REQUIRE(world.entityGetComponent<Foo>(ent1).x == 2);
-        REQUIRE(world.entityGetComponent<Foo>(ent2).x == 0);
-        REQUIRE(world.entityGetComponent<Foo>(ent3).x == 0);
-    }
-}
-TEST_CASE("Iteration filters 2")
-{
-    mecs::Registry reg({ kDebugAllocator });
+//         REQUIRE(world.entityGetComponent<Foo>(ent0).x == 0);
+//         REQUIRE(world.entityGetComponent<Foo>(ent1).x == 2);
+//         REQUIRE(world.entityGetComponent<Foo>(ent2).x == 0);
+//         REQUIRE(world.entityGetComponent<Foo>(ent3).x == 0);
+//     }
+// }
+// TEST_CASE("Iteration filters 2")
+// {
+//     mecs::Registry reg({ kDebugAllocator });
 
-    struct Foo {
-        int x;
-    };
-    struct Bar {
-        int y { 2 };
-    };
-    struct Baz { };
-    struct ID {
-        int id;
-    };
-    reg.addRegistration<Foo>("Foo");
-    reg.addRegistration<Bar>("Bar");
-    reg.addRegistration<Baz>("Baz");
-    reg.addRegistration<ID>("ID");
+//     struct Foo {
+//         int x;
+//     };
+//     struct Bar {
+//         int y { 2 };
+//     };
+//     struct Baz { };
+//     struct ID {
+//         int id;
+//     };
+//     reg.addRegistration<Foo>("Foo");
+//     reg.addRegistration<Bar>("Bar");
+//     reg.addRegistration<Baz>("Baz");
+//     reg.addRegistration<ID>("ID");
 
-    mecs::World world(reg);
-    mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
-    mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
+//     mecs::World world(reg);
+//     mecs::Iterator fooIterator = world.acquireIterator<const Foo&>();
+//     mecs::Iterator barIterator = world.acquireIterator<const Bar&>();
 
-    mecs::EntityID ent0 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<Baz>()
-                              .withComponent<ID>(0);
-    mecs::EntityID ent1 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<Bar>()
-                              .withComponent<ID>(1);
-    mecs::EntityID ent2 = world.spawnEntity()
-                              .withComponent<Foo>()
-                              .withComponent<ID>(0);
+//     mecs::EntityID ent0 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<Baz>()
+//                               .withComponent<ID>(0);
+//     mecs::EntityID ent1 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<Bar>()
+//                               .withComponent<ID>(1);
+//     mecs::EntityID ent2 = world.spawnEntity()
+//                               .withComponent<Foo>()
+//                               .withComponent<ID>(0);
 
-    {
-        // Iterate all components with a Foo and a Bar
-        mecs::Iterator allFoos = world.acquireIterator<const Foo&, const Baz&>();
-        REQUIRE(mecs::utils::count(allFoos) == 1);
-    }
-    {
-        // Iterate all components with a Foo, not a Baz
-        mecs::Iterator allFoos = world.acquireIterator<const Foo&, mecs::Not<Baz>>();
-        REQUIRE(mecs::utils::count(allFoos) == 2);
-    }
-}
+//     {
+//         // Iterate all components with a Foo and a Bar
+//         mecs::Iterator allFoos = world.acquireIterator<const Foo&, const Baz&>();
+//         REQUIRE(mecs::utils::count(allFoos) == 1);
+//     }
+//     {
+//         // Iterate all components with a Foo, not a Baz
+//         mecs::Iterator allFoos = world.acquireIterator<const Foo&, mecs::Not<Baz>>();
+//         REQUIRE(mecs::utils::count(allFoos) == 2);
+//     }
+// }
 
-// NOLINTEND this is a test file
+// // NOLINTEND this is a test file

@@ -15,8 +15,20 @@ void MECS_API mecsRegistryPrefabRemoveComponent(MecsRegistry* reg, MecsPrefabID 
 void MECS_API mecsRegistryDestroyPrefab(MecsRegistry* reg, MecsPrefabID prefabID);
 
 MecsSize MECS_API mecsRegistryGetNumComponents(MecsRegistry* reg);
+
+// Asserts if the index is not valid, otherwise it always returns a valid MecsComponentID
 MecsComponentID MECS_API mecsGetComponentIDByIndex(MecsRegistry* reg, MecsSize index);
+
+// return MECS_INVALID if no component was registered with this typeID, otherwise it always returns a valid MecsComponentID
+MecsComponentID MECS_API mecsGetComponentIDByTypeID(MecsRegistry* reg, MecsTypeID typeID);
+
+// Asserts if the index is not valid, otherwise it always returns a valid ComponentInfo
 const MECS_API ComponentInfo* mecsGetComponentInfoByIndex(MecsRegistry* reg, MecsSize index);
-const MECS_API ComponentInfo* mecsGetComponentInfoByID(MecsRegistry* reg, MecsComponentID componentID);
+
+// Asserts if the componentID is not valid, otherwise it always returns a valid ComponentInfo
+const MECS_API ComponentInfo* mecsGetComponentInfoByComponentID(MecsRegistry* reg, MecsComponentID componentID);
+
+// May return nullptr if there's no component with this typeID
+const MECS_API ComponentInfo* mecsGetComponentInfoByTypeID(MecsRegistry* reg, MecsTypeID typeID);
 
 MECS_ENDEXTERNCPP()

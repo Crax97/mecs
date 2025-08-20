@@ -37,6 +37,7 @@ add_library(mecshpp
     src/mecshpp/mecs.cc
 
     include/mecshpp/mecs.hpp
+    include/mecshpp/mecsrtti.hpp
 )
 
 target_include_directories(mecshpp PUBLIC include)

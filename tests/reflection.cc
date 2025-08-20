@@ -27,28 +27,35 @@ TEST_CASE("C Reflection Basics")
     MECS_REGISTER_COMPONENT(registry, float);
     static MecsComponentID Component_ConstCharPtr = ~0U;
     do {
-        ComponentInfo info = { .name = "const char*", .size = sizeof(const char*), .align = alignof(const char*) };
+        ComponentInfo info = {
+            .name = "const char*",
+            .typeID = __COUNTER__,
+            .size = sizeof(const char*),
+            .align = alignof(const char*),
+        };
         Component_ConstCharPtr = mecsRegistryAddRegistration(registry, &info);
     } while (0);
     static MecsComponentID Component_Foo = ~0U;
     {
         ComponentInfo info = { .name = "Foo", .size = sizeof(Foo), .align = alignof(Foo) };
         static std::array members {
-            MecsComponentMember {   .componentID = Component_int, .offset = offsetof(Foo, foo), .name = "foo" },
-            MecsComponentMember { .componentID = Component_float, .offset = offsetof(Foo, bar), .name = "bar" },
+            MecsComponentMember {   .typeID = Component_int, .offset = offsetof(Foo, foo), .name = "foo" },
+            MecsComponentMember { .typeID = Component_float, .offset = offsetof(Foo, bar), .name = "bar" },
         };
         info.memberCount = members.size();
         info.members = members.data();
+        info.typeID = __COUNTER__;
         Component_Foo = mecsRegistryAddRegistration(registry, &info);
     }
     static MecsComponentID Component_Bar = ~0U;
     {
         ComponentInfo info = { .name = "Bar", .size = sizeof(Bar), .align = alignof(Bar) };
         static std::array members {
-            MecsComponentMember { .componentID = Component_ConstCharPtr, .offset = offsetof(Bar, name), .name = "name" },
+            MecsComponentMember { .typeID = Component_ConstCharPtr, .offset = offsetof(Bar, name), .name = "name" },
         };
         info.memberCount = members.size();
         info.members = members.data();
+        info.typeID = __COUNTER__;
         Component_Bar = mecsRegistryAddRegistration(registry, &info);
     }
 
@@ -59,7 +66,7 @@ TEST_CASE("C Reflection Basics")
     Foo* foo = (Foo*)(mecsWorldEntityGetComponent(world, ent0, Component_Foo));
     *foo = { 42, 3.14F };
 
-    const ComponentInfo* fooInfo = mecsGetComponentInfoByID(registry, Component_Foo);
+    const ComponentInfo* fooInfo = mecsGetComponentInfoByComponentID(registry, Component_Foo);
 
     REQUIRE(fooInfo->memberCount == 2);
 

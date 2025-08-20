@@ -204,25 +204,31 @@ TEST_CASE("C sample")
     mecsRegistryFree(registry);
 }
 
+struct Position {
+    int x, y, z;
+};
+
+struct Velocity {
+    int x, y, z;
+};
+
+struct Name {
+    std::string name;
+};
+struct Player { };
+struct Enemy { };
+struct Mesh {
+    std::string meshName;
+};
+MECS_RTTI(Position);
+MECS_RTTI(Velocity);
+MECS_RTTI(Name);
+MECS_RTTI(Player);
+MECS_RTTI(Enemy);
+MECS_RTTI(Mesh);
+
 TEST_CASE("C++ sample")
-
 {
-    struct Position {
-        int x, y, z;
-    };
-
-    struct Velocity {
-        int x, y, z;
-    };
-
-    struct Name {
-        std::string name;
-    };
-    struct Player { };
-    struct Enemy { };
-    struct Mesh {
-        std::string meshName;
-    };
 
     MecsRegistryCreateInfo regInfo {};
     regInfo.memAllocator = kDebugAllocator;
