@@ -220,12 +220,12 @@ struct Enemy { };
 struct Mesh {
     std::string meshName;
 };
-MECS_RTTI(Position);
-MECS_RTTI(Velocity);
-MECS_RTTI(Name);
-MECS_RTTI(Player);
-MECS_RTTI(Enemy);
-MECS_RTTI(Mesh);
+MECS_RTTI_SIMPLE(Position);
+MECS_RTTI_SIMPLE(Velocity);
+MECS_RTTI_SIMPLE(Name);
+MECS_RTTI_SIMPLE(Player);
+MECS_RTTI_SIMPLE(Enemy);
+MECS_RTTI_SIMPLE(Mesh);
 
 TEST_CASE("C++ sample")
 {
@@ -233,12 +233,12 @@ TEST_CASE("C++ sample")
     MecsRegistryCreateInfo regInfo {};
     regInfo.memAllocator = kDebugAllocator;
     mecs::Registry registry(regInfo);
-    registry.addRegistration<Player>("Player");
-    registry.addRegistration<Enemy>("Enemy");
-    registry.addRegistration<Position>("Position");
-    registry.addRegistration<Velocity>("Velocity");
-    registry.addRegistration<Name>("Name");
-    registry.addRegistration<Mesh>("Mesh");
+    registry.addRegistration<Player>();
+    registry.addRegistration<Enemy>();
+    registry.addRegistration<Position>();
+    registry.addRegistration<Velocity>();
+    registry.addRegistration<Name>();
+    registry.addRegistration<Mesh>();
 
     // Player moves 3 pixels to right each frame
     mecs::PrefabID playerCharacterPrefab = registry.createPrefab()

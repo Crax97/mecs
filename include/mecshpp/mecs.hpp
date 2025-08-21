@@ -77,45 +77,11 @@ struct Not { };
 
 namespace detail {
 
-    template <typename T>
-    static void init(void* ptr)
-    {
-        new (ptr) T();
-    }
-
-    template <typename T>
-    static void copy(const void* src, void* dest, [[maybe_unused]] MecsSize size)
-    {
-        T* tDest = reinterpret_cast<T*>(dest);
-        const T* tSrc = reinterpret_cast<const T*>(src);
-        *tDest = *tSrc;
-    }
-
-    template <typename T>
-    static void destroy(void* ptr)
-    {
-        T* tPtr = reinterpret_cast<T*>(ptr);
-        tPtr->~T();
-    }
 }
 
 template <typename T>
     requires(mecs::HasRTTI<T>)
 struct RegistrationInfo {
-    static MecsComponentID init(MecsRegistry* reg, const char* name)
-    {
-        static ComponentInfo gComponentInfo {
-            .name = name,
-            .typeID = rttiOf<T>::kTypeID,
-            .size = sizeof(T),
-            .align = alignof(T),
-            .init = mecs::detail::init<T>,
-            .copy = mecs::detail::copy<T>,
-            .destroy = mecs::detail::destroy<T>,
-        };
-        return mecsRegistryAddRegistration(reg, &gComponentInfo);
-    }
-
     static ComponentID getComponentID(MecsRegistry* reg)
     {
         mecs::ComponentID compID = { mecsGetComponentIDByTypeID(reg, rttiOf<T>::kTypeID) };
@@ -331,11 +297,50 @@ public:
     void removePrefabComponent(PrefabID prefab, ComponentID component);
     void destroyPrefab(PrefabID prefab);
 
+    [[nodiscard]]
+    MecsSize getNumComponents() const;
+    [[nodiscard]]
+    mecs::ComponentID getComponentIDByIndex(MecsSize index) const;
+    [[nodiscard]]
+    mecs::ComponentID getComponentIDByTypeID(MecsTypeID typeID) const;
+    [[nodiscard]]
+    const ComponentInfo& getComponentInfoByIndex(MecsSize index) const;
+    [[nodiscard]]
+    const ComponentInfo& getComponentInfoByTypeID(MecsTypeID typeID) const;
+    [[nodiscard]]
+    const ComponentInfo& getComponentInfoByComponentID(mecs::ComponentID componentID) const;
+
     template <typename T>
-    ComponentID addRegistration(const char* name)
+    ComponentID addRegistration()
         requires(HasRTTI<T>)
     {
-        return { RegistrationInfo<T>::init(mHandle, name) };
+        return addRegistration(mecs::rttiOf<T>::componentInfo());
+    }
+
+    template <typename F>
+    void forEachRegisteredComponent(F&& func)
+    {
+        const MecsSize numComponents = getNumComponents();
+        for (MecsSize i = 0; i < numComponents; i++) {
+            mecs::ComponentID componentID = getComponentIDByIndex(i);
+            const ComponentInfo& info = getComponentInfoByIndex(i);
+            func(componentID, info);
+        }
+    }
+
+    template <typename T>
+    [[nodiscard]]
+    const ComponentInfo& getComponentInfo() const
+        requires(HasRTTI<T>)
+    {
+        return getComponentInfoByTypeID(mecs::typeIdOf<T>());
+    }
+    template <typename T>
+    [[nodiscard]]
+    mecs::ComponentID getComponentID() const
+        requires(HasRTTI<T>)
+    {
+        return getComponentIDByTypeID(mecs::typeIdOf<T>());
     }
 
     template <typename T>
@@ -387,26 +392,26 @@ public:
     [[nodiscard]]
     bool entityHasComponent(EntityID entity) const
     {
-        return entityHasComponent(entity, RegistrationInfo<T>::getComponentID(mHandle));
+        return entityHasComponent(entity, RegistrationInfo<T>::getComponentID(mecsWorldGetRegistry(mHandle)));
     }
 
     template <typename T>
     [[nodiscard]]
     T& entityGetComponent(EntityID entity) const
     {
-        return *reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID(mHandle)));
+        return *reinterpret_cast<T*>(entityGetComponent(entity, RegistrationInfo<T>::getComponentID(mecsWorldGetRegistry(mHandle))));
     }
 
     template <typename T>
     void entityAddComponent(EntityID entity)
     {
-        entityAddComponent(entity, RegistrationInfo<T>::getComponentID(mHandle));
+        entityAddComponent(entity, RegistrationInfo<T>::getComponentID(mecsWorldGetRegistry(mHandle)));
     }
 
     template <typename T>
     void entityRemoveComponent(EntityID entity)
     {
-        return entityRemoveComponent(entity, RegistrationInfo<T>::getComponentID(mHandle));
+        return entityRemoveComponent(entity, RegistrationInfo<T>::getComponentID(mecsWorldGetRegistry(mHandle)));
     }
 
     template <typename... Args>

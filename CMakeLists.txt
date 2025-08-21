@@ -31,7 +31,6 @@ target_include_directories(mecs PUBLIC include)
 
 set_target_properties(mecs PROPERTIES C_STANDARD 23 C_STANDARD_REQUIRED ON CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 
-
 add_library(mecshpp
     STATIC
     src/mecshpp/mecs.cc
@@ -43,6 +42,14 @@ add_library(mecshpp
 target_include_directories(mecshpp PUBLIC include)
 set_target_properties(mecshpp PROPERTIES C_STANDARD 23 C_STANDARD_REQUIRED ON CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 target_link_libraries(mecshpp PUBLIC mecs)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_definitions(mecshpp PUBLIC MECS_COMPILER_CLANG)    
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_definitions(mecshpp PUBLIC MECS_COMPILER_GCC)    
+else()
+    target_compile_definitions(mecshpp PUBLIC MECS_COMPILER_MSVC)    
+endif()
 
 if(MECS_COMPILE_TESTS)
     add_subdirectory(thirdparty/catch2)

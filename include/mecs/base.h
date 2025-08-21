@@ -100,8 +100,9 @@ typedef struct ComponentInfo {
     // Number of child members
     MecsSize memberCount;
 
-    // Can be null only when memberCount is 0: in that case, the field is ignored
-    MecsComponentMember* members;
+    // Can be null only when memberCount is 0: in that case, the field is ignored.
+    // This field must live for as long as the parent registry
+    const MecsComponentMember* members;
 
     // Can be null, called when this component is added to an entity
     // to initialize the component

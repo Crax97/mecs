@@ -5,6 +5,8 @@
 #include "mecs/registry.h"
 #include "mecs/world.h"
 
+#include "mecshpp/mecs.hpp"
+
 #include "test_private.hpp"
 #include <cstddef>
 
@@ -80,5 +82,63 @@ TEST_CASE("C Reflection Basics")
 
     mecsWorldFree(world);
     mecsRegistryFree(registry);
+}
+
+struct Foo {
+    int foo;
+    float bar;
+};
+
+struct Bar {
+    Bar() = default;
+    Bar(std::string inName)
+        : name(inName)
+    {
+    }
+
+private:
+    MECS_RTTI_FRIEND(Bar)
+    std::string name;
+};
+MECS_RTTI_STRUCT_BEGIN(Foo)
+MECS_RTTI_STRUCT_MEMBER(foo)
+MECS_RTTI_STRUCT_MEMBER(bar)
+MECS_RTTI_STRUCT_END()
+
+MECS_RTTI_STRUCT_BEGIN(Bar)
+MECS_RTTI_STRUCT_MEMBER(name)
+MECS_RTTI_STRUCT_END()
+
+TEST_CASE("C++ reflection sample")
+{
+
+    MecsRegistryCreateInfo regInfo {};
+    regInfo.memAllocator = kDebugAllocator;
+    mecs::Registry registry(regInfo);
+    registry.addRegistration<Foo>();
+    registry.addRegistration<Bar>();
+
+    mecs::World world(registry);
+
+    mecs::EntityID entity = world.spawnEntity()
+                                .withComponent<Foo>(42, 3.14F)
+                                .withComponent<Bar>("DuffyDuck");
+    const ComponentInfo& fooInfo = registry.getComponentInfo<Foo>();
+    const ComponentInfo& barInfo = registry.getComponentInfo<Bar>();
+
+    void* foo = &world.entityGetComponent<Foo>(entity);
+    void* bar = &world.entityGetComponent<Bar>(entity);
+
+    REQUIRE(fooInfo.memberCount == 2);
+    REQUIRE(barInfo.memberCount == 1);
+    REQUIRE(std::string(fooInfo.members[0].name) == "foo");
+    REQUIRE(std::string(fooInfo.members[1].name) == "bar");
+
+    REQUIRE(std::string(barInfo.members[0].name) == "name");
+    REQUIRE(barInfo.members[0].typeID == mecs::typeIdOf<std::string>());
+
+    REQUIRE(*reinterpret_cast<int*>(static_cast<char*>(foo) + fooInfo.members[0].offset) == 42);
+    REQUIRE(*reinterpret_cast<float*>(static_cast<char*>(foo) + fooInfo.members[1].offset) == 3.14F);
+    REQUIRE(*reinterpret_cast<std::string*>(static_cast<char*>(bar) + barInfo.members[0].offset) == "DuffyDuck");
 }
 // NOLINTEND
