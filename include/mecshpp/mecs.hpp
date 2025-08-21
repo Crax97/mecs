@@ -296,6 +296,13 @@ public:
     void* getPrefabComponent(PrefabID prefab, ComponentID component);
     void removePrefabComponent(PrefabID prefab, ComponentID component);
     void destroyPrefab(PrefabID prefab);
+    [[nodiscard]]
+    MecsSize getPrefabNumComponents(PrefabID prefab) const;
+    [[nodiscard]]
+    ComponentID getPrefabComponentIDByIndex(PrefabID prefab, MecsSize componentIndex) const;
+
+    [[nodiscard]]
+    MecsSize getNumPrefabs() const;
 
     [[nodiscard]]
     MecsSize getNumComponents() const;

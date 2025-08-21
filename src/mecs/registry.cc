@@ -89,6 +89,26 @@ MecsPrefabID mecsRegistryCreatePrefab(MecsRegistry* reg)
     MECS_ASSERT(reg != nullptr);
     return reg->prefabs.push(reg->memAllocator, {});
 }
+
+MecsSize mecsRegistryGetNumPrefabs(MecsRegistry* reg)
+{
+    MECS_ASSERT(reg != nullptr);
+    return reg->prefabs.count();
+}
+
+MecsSize mecsRegistryPrefabGetNumComponents(MecsRegistry* reg, MecsPrefabID prefabID)
+{
+    MECS_ASSERT(reg != nullptr);
+    MecsPrefab* prefab = reg->prefabs.at(prefabID);
+    return prefab->components.count();
+}
+MecsComponentID mecsRegistryPrefabGetComponentIDByIndex(MecsRegistry* reg, MecsPrefabID prefabID, MecsSize componentIndex)
+{
+    MECS_ASSERT(reg != nullptr);
+    MecsPrefab* prefab = reg->prefabs.at(prefabID);
+    return prefab->components[componentIndex].component;
+}
+
 void mecsRegistryPrefabAddComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID)
 {
     mecsRegistryPrefabAddComponentWithDefaults(reg, prefabID, componentID, nullptr);
@@ -165,6 +185,7 @@ void mecsRegistryPrefabRemoveComponent(MecsRegistry* reg, MecsPrefabID prefabID,
     for (MecsSize i = 0; i < componentCount; i++) {
         MecsPrefabComponent& component = prefab.components[i];
         if (component.component == componentID) {
+            prefab.components[i].blob.destroy(reg);
             prefab.components.removeAt(i);
             return;
         }

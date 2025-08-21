@@ -45,6 +45,18 @@ void Registry::destroyPrefab(PrefabID prefab)
 {
     mecsRegistryDestroyPrefab(mHandle, prefab.id());
 }
+MecsSize Registry::getPrefabNumComponents(PrefabID prefabID) const
+{
+    return mecsRegistryPrefabGetNumComponents(mHandle, prefabID.id());
+}
+ComponentID Registry::getPrefabComponentIDByIndex(PrefabID prefabID, MecsSize componentIndex) const
+{
+    return { mecsRegistryPrefabGetComponentIDByIndex(mHandle, prefabID.id(), componentIndex) };
+}
+MecsSize Registry::getNumPrefabs() const
+{
+    return mecsRegistryGetNumPrefabs(mHandle);
+}
 MecsSize Registry::getNumComponents() const
 {
     return mecsRegistryGetNumComponents(mHandle);
