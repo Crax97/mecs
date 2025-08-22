@@ -65,17 +65,9 @@ mecs::ComponentID Registry::getComponentIDByIndex(MecsSize index) const
 {
     return { mecsGetComponentIDByIndex(mHandle, index) };
 }
-mecs::ComponentID Registry::getComponentIDByTypeID(MecsTypeID typeID) const
-{
-    return { mecsGetComponentIDByTypeID(mHandle, typeID) };
-}
 const ComponentInfo& Registry::getComponentInfoByIndex(MecsSize index) const
 {
     return *mecsGetComponentInfoByIndex(mHandle, index);
-}
-const ComponentInfo& Registry::getComponentInfoByTypeID(MecsTypeID typeID) const
-{
-    return *mecsGetComponentInfoByTypeID(mHandle, typeID);
 }
 const ComponentInfo& Registry::getComponentInfoByComponentID(mecs::ComponentID componentID) const
 {

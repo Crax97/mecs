@@ -538,6 +538,7 @@ public:
         entry.value.~T();
 
         mFreeIndices.push(allocator, versIndex.version.index);
+        mCount--;
         return value;
     }
 

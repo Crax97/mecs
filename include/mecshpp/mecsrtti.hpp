@@ -6,68 +6,97 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
-
-#if defined(MECS_COMPILER_MSVC)
-#define MECS_RTTI_NO_INVALIDOFFSETOF_BEGIN
-#define MECS_RTTI_NO_INVALIDOFFSETOF_END
-#elif defined(MECS_COMPILER_GCC) or defined(MECS_COMPILER_CLANG)
-#define MECS_RTTI_NO_INVALIDOFFSETOF_BEGIN \
-    _Pragma("GCC diagnostic push")         \
-        _Pragma("GCC diagnostic ignored \"-Winvalid-offsetof\"")
-
-#define MECS_RTTI_NO_INVALIDOFFSETOF_END \
-    _Pragma("GCC diagnostic pop")
-#else
-#message "Unknown compiler, compilation may fail"
-#define MECS_RTTI_NO_INVALIDOFFSETOF_BEGIN
-#define MECS_RTTI_NO_INVALIDOFFSETOF_END
-#endif
 
 #define MECS_RTTI_FRIEND(Type) \
     friend struct ::mecs::RTTI<Type>;
 
-#define MECS_RTTI_STRUCT_BEGIN(Type)                                                           \
-    MECS_RTTI_NO_INVALIDOFFSETOF_BEGIN                                                         \
-    template <>                                                                                \
-    struct ::mecs::RTTI<Type> {                                                                \
-        using MecsCurrentT = Type;                                                             \
-        constexpr static MecsTypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
-        constexpr static MecsSize kSizeOf = sizeof(Type);                                      \
-        constexpr static MecsSize kAlignOf = alignof(Type);                                    \
-        static const ComponentInfo& componentInfo()                                            \
-        {                                                                                      \
-            static const char* kName = #Type;                                                  \
-            static std::array kMembers = ::mecs::detail::makeArray<MecsComponentMember>(0
+#define MECS_RTTI_STRUCT_BEGIN(Type)                                                               \
+    template <>                                                                                    \
+    struct ::mecs::RTTI<Type> {                                                                    \
+        using MecsCurrentT = Type;                                                                 \
+        constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
+        constexpr static MecsSize kSizeOf = sizeof(Type);                                          \
+        constexpr static MecsSize kAlignOf = alignof(Type);                                        \
+                                                                                                   \
+        constexpr static const char* kName = #Type;                                                \
+        constexpr static auto membersContainer = ::mecs::detail::MemberContainer<0> { }
 
+// NOLINTBEGIN the + is required for syntax masturbation
 #define MECS_RTTI_STRUCT_MEMBER(Name) \
-    , MecsComponentMember { .typeID = ::mecs::typeIdOf<decltype(MecsCurrentT::Name)>(), .offset = offsetof(MecsCurrentT, Name), .name = #Name }
+    +::mecs::Member { .name = #Name, .typeID = ::mecs::typeIdOf<decltype(MecsCurrentT::Name)>(), .getMemberFn = ::mecs::detail::GetMember<decltype(MecsCurrentT::Name) MecsCurrentT::*, &MecsCurrentT::Name>::get }
+// NOLINTEND
 
-#define MECS_RTTI_STRUCT_END()                            \
-        );                                                \
-    static ComponentInfo gInfo {                          \
-        .name = kName,                                    \
-        .typeID = kTypeID,                                \
-        .size = sizeof(MecsCurrentT),                     \
-        .align = alignof(MecsCurrentT),                   \
-        .memberCount = kMembers.size(),                   \
-        .members = kMembers.data(),                       \
-        .init = ::mecs::detail::init<MecsCurrentT>,       \
-        .copy = ::mecs::detail::copy<MecsCurrentT>,       \
-        .destroy = ::mecs::detail::destroy<MecsCurrentT>, \
-    };                                                    \
-    return gInfo;                                         \
-    }                                                     \
-    }                                                     \
-    ;                                                     \
-    MECS_RTTI_NO_INVALIDOFFSETOF_END
+#define MECS_RTTI_STRUCT_END()                                 \
+    ;                                                          \
+    constexpr static auto kMembers = membersContainer.members; \
+    static const ComponentInfo& componentInfo()                \
+    {                                                          \
+        static ComponentInfo gInfo {                           \
+            .typeID = kTypeID,                                 \
+            .name = kName,                                     \
+            .size = sizeof(MecsCurrentT),                      \
+            .align = alignof(MecsCurrentT),                    \
+            .init = ::mecs::detail::init<MecsCurrentT>,        \
+            .copy = ::mecs::detail::copy<MecsCurrentT>,        \
+            .destroy = ::mecs::detail::destroy<MecsCurrentT>,  \
+        };                                                     \
+        return gInfo;                                          \
+    }                                                          \
+    }                                                          \
+    ;
 
 #define MECS_RTTI_SIMPLE(Type)   \
     MECS_RTTI_STRUCT_BEGIN(Type) \
     MECS_RTTI_STRUCT_END()
 
 namespace mecs {
+using TypeID = uint64_t;
+
+using GetMemberFn = void* (*)(void*);
+struct Member {
+    const char* name;
+    TypeID typeID;
+    GetMemberFn getMemberFn;
+};
+
 namespace detail {
+
+    template <typename T, std::size_t... I>
+    constexpr std::array<T, sizeof...(I) + 1> concat(const std::array<T, sizeof...(I)>& left, const T& rhs, std::index_sequence<I...> idx)
+    {
+        return { left[I]..., rhs };
+    }
+
+    template <MecsSize nMembers>
+    struct MemberContainer {
+        std::array<Member, nMembers> members;
+
+        constexpr MemberContainer<nMembers + 1> operator+(const Member& mem)
+        {
+            return MemberContainer<nMembers + 1> { .members = concat(members, mem, std::make_index_sequence<nMembers>()) };
+        }
+    };
+
+    template <typename T, T>
+    struct GetMember;
+
+    template <typename T, typename M, M T::* mPtr>
+    struct GetMember<M T::*, mPtr> {
+        static void* get(void* base)
+        {
+            T* tBase = static_cast<T*>(base);
+            return &(tBase->*mPtr);
+        }
+    };
+
+    template <typename T, typename M, T::M* mPtr>
+    void* getMember(void* base)
+    {
+        T* tBase = static_cast<T*>(base);
+        return &base.*mPtr;
+    }
 
     template <typename T>
     static void init(void* ptr)
@@ -89,11 +118,7 @@ namespace detail {
         T* tPtr = reinterpret_cast<T*>(ptr);
         tPtr->~T();
     }
-    template <typename T, typename... Args>
-    constexpr auto makeArray(int unused, Args... args)
-    {
-        return std::array<T, sizeof...(Args)> { { args... } };
-    }
+
     constexpr uint64_t fnv1a(const char* str, size_t n, uint64_t basis = 14695981039346656037U) // NOLINT
     {
         return n == 0 ? basis : fnv1a(str + 1, n - 1, (basis ^ str[0]) * 1099511628211U); // NOLINT
@@ -113,7 +138,7 @@ concept HasRTTI = requires {
 };
 
 template <typename T>
-constexpr MecsTypeID typeIdOf()
+constexpr mecs::TypeID typeIdOf()
     requires(HasRTTI<T>)
 {
     return rttiOf<T>::kTypeID;

@@ -16,7 +16,10 @@
 #else
 #define MECS_ALIGN_OF _Alignof
 #endif
-#define MECS_COMPONENTINFO(T) { .name = #T, .typeID = __COUNTER__, .size = sizeof(T), .align = MECS_ALIGN_OF(T) }
+
+#define MECS_COUNTER __COUNTER__
+
+#define MECS_COMPONENTINFO(T) { .typeID = MECS_COUNTER, .name = #T, .size = sizeof(T), .align = MECS_ALIGN_OF(T) }
 
 #define MECS_REGISTER_COMPONENT(reg, T)                          \
     static MecsComponentID Component_##T = MECS_INVALID;         \
@@ -30,7 +33,7 @@ MECS_EXTERNCPP()
 
 typedef uint8_t MecsU8;
 typedef uint32_t MecsU32;
-typedef uint64_t MecsTypeID;
+typedef uint64_t MecsU64;
 typedef size_t MecsSize;
 
 typedef MecsU32 MecsEntityID;
@@ -71,38 +74,18 @@ typedef struct MecsRegistryCreateInfo {
 typedef struct MecsWorldCreateInfo {
     MecsAllocator memAllocator;
 } MecsWorldCreateInfo;
-
-typedef struct MecsComponentMember {
-    // Must be a valid ID
-    MecsTypeID typeID;
-
-    // Offset of the member in the component
-    MecsSize offset;
-
-    // Must not be null
-    const char* name;
-} MecsComponentMember;
-
 typedef struct ComponentInfo {
-    // Must not be null
-    const char* name;
+    // Must be unique for all different types
+    MecsU64 typeID;
 
-    // Must be unique among all components in the registry: if a component has the same typeID and name of another registered type,
-    // the older type will be replaced
-    MecsTypeID typeID;
+    // Must not be null and unique all registered types
+    const char* name;
 
     // Must be greater than zero
     MecsSize size;
 
     // Must be greater than zero
     MecsSize align;
-
-    // Number of child members
-    MecsSize memberCount;
-
-    // Can be null only when memberCount is 0: in that case, the field is ignored.
-    // This field must live for as long as the parent registry
-    const MecsComponentMember* members;
 
     // Can be null, called when this component is added to an entity
     // to initialize the component
@@ -114,6 +97,7 @@ typedef struct ComponentInfo {
     // Can be null, called when this component is removed from an entity
     // to deinitialize the component
     PFNMecsComponentDestroy destroy;
+
 } ComponentInfo;
 
 typedef struct MecsEntityInfo {
