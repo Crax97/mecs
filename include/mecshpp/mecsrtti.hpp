@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mecs/base.h"
+#include "mecshpp/mecsrtti.hpp"
 #include <array>
 #include <concepts>
 #include <cstdint>
@@ -12,19 +13,23 @@
 #define MECS_RTTI_FRIEND(Type) \
     friend struct ::mecs::RTTI<Type>;
 
-#define MECS_RTTI_STRUCT_PRELUDE(Type, Name, TyID, Kind)    \
-    template <>                                             \
-    struct ::mecs::RTTI<Type> {                             \
-        using MecsCurrentT = Type;                          \
-        constexpr static ::mecs::RttiKind kKind = Kind;     \
-        constexpr static ::mecs::TypeID kTypeID = TyID;     \
-        constexpr static MecsSize kSizeOf = sizeof(Type);   \
-        constexpr static MecsSize kAlignOf = alignof(Type); \
-                                                            \
+#define MECS_RTTI_STRUCT_PRELUDE(Type, Name, Kind)                                               \
+    template <>                                                                                  \
+    struct ::mecs::ConcreteType<::mecs::detail::fnv1a(Name, sizeof(Name) - 1)> {                 \
+        using kConcrete = Type;                                                                  \
+    };                                                                                           \
+    template <>                                                                                  \
+    struct ::mecs::RTTI<Type> {                                                                  \
+        using MecsCurrentT = Type;                                                               \
+        constexpr static ::mecs::RttiKind kKind = Kind;                                          \
+        constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(Name, sizeof(Name) - 1); \
+        constexpr static MecsSize kSizeOf = sizeof(Type);                                        \
+        constexpr static MecsSize kAlignOf = alignof(Type);                                      \
+                                                                                                 \
         constexpr static const char* kName = Name;
 
-#define MECS_RTTI_STRUCT_BEGIN(Type)                                                                                  \
-    MECS_RTTI_STRUCT_PRELUDE(Type, #Type, ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1), ::mecs::RttiKind::eStruct) \
+#define MECS_RTTI_STRUCT_BEGIN(Type)                                 \
+    MECS_RTTI_STRUCT_PRELUDE(Type, #Type, ::mecs::RttiKind::eStruct) \
     constexpr static auto membersContainer = ::mecs::detail::MemberContainer<0> { }
 
 // NOLINTBEGIN the + is required for syntax masturbation
@@ -51,27 +56,28 @@
     }                                                          \
     ;
 
-#define MECS_RTTI_ENUM_BEGIN(Type)                                                                                   \
-    MECS_RTTI_STRUCT_PRELUDE(Type, #Type, ::mecs::typeIdOf<std::underlying_type_t<Type>>(), ::mecs::RttiKind::eEnum) \
-    using UnderlyingType = std::underlying_type_t<Type>;                                                             \
+#define MECS_RTTI_ENUM_BEGIN(Type)                                 \
+    MECS_RTTI_STRUCT_PRELUDE(Type, #Type, ::mecs::RttiKind::eEnum) \
+    using UnderlyingType = std::underlying_type_t<Type>;           \
     constexpr static auto variantsContainer = ::mecs::detail::VariantContainer<UnderlyingType, 0> { }
 
 #define MECS_RTTI_ENUM_VARIANT(VariantValue, Name) \
     +::mecs::Variant<UnderlyingType> { .name = Name, .value = static_cast<UnderlyingType>(MecsCurrentT::VariantValue) }
-#define MECS_RTTI_ENUM_END()                                      \
-    ;                                                             \
-    constexpr static auto kVariants = variantsContainer.variants; \
-    constexpr static MecsSize kNumVariants = kVariants.size();    \
-    }                                                             \
+#define MECS_RTTI_ENUM_END()                                                              \
+    ;                                                                                     \
+    constexpr static auto kVariants = variantsContainer.variants;                         \
+    constexpr static MecsSize kNumVariants = kVariants.size();                            \
+    constexpr static ::mecs::TypeID kUnderlyingType = ::mecs::typeIdOf<UnderlyingType>(); \
+    }                                                                                     \
     ;
 
 #define MECS_RTTI_SIMPLE(Type)   \
     MECS_RTTI_STRUCT_BEGIN(Type) \
     MECS_RTTI_STRUCT_END()
 
-#define MECS_RTTI_FIELD(Type)                                                                                        \
-    MECS_RTTI_STRUCT_PRELUDE(Type, #Type, ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1), ::mecs::RttiKind::eField) \
-    constexpr static auto membersContainer = ::mecs::detail::MemberContainer<0> { }                                  \
+#define MECS_RTTI_FIELD(Type)                                                       \
+    MECS_RTTI_STRUCT_PRELUDE(Type, #Type, ::mecs::RttiKind::eField)                 \
+    constexpr static auto membersContainer = ::mecs::detail::MemberContainer<0> { } \
     MECS_RTTI_STRUCT_END()
 
 namespace mecs {
@@ -173,6 +179,13 @@ template <typename T>
 struct RTTI {
 };
 
+template <mecs::TypeID typeID>
+struct ConcreteType {
+};
+
+template <mecs::TypeID typeID>
+using concreteType = typename ConcreteType<typeID>::kConcrete;
+
 template <typename T>
 using rttiOf = mecs::RTTI<std::remove_const_t<std::remove_reference_t<T>>>;
 
@@ -186,6 +199,45 @@ constexpr mecs::TypeID typeIdOf()
     requires(HasRTTI<T>)
 {
     return rttiOf<T>::kTypeID;
+}
+
+template <auto Start, auto End, auto Inc, class F>
+constexpr void constexprFor(F&& func)
+{
+    if constexpr (Start < End) {
+        func(std::integral_constant<decltype(Start), Start>());
+        constexprFor<Start + Inc, End, Inc>(func);
+    }
+}
+
+/*Useful for iterating at compile time on the members of a struct, e.g
+```
+
+template <typename T>
+    requires(mecs::HasRTTI<T>)
+std::string dump(T& val) {
+std::string res;
+
+using rtti = mecs::rttiOf<T>;
+constexpr auto kMembers = rtti::kMembers;
+
+mecs::constexprFor(kMembers, [&kMembers, &res, &val](auto idx) {
+    constexpr auto kMember = kMembers[idx];
+    using memTy = mecs::concreteType<kMember.typeID>;
+    memTy& mem = *static_cast<memTy*>(kMember.getMemberFn(&val));
+    res += kMember.name;
+    res += " ";
+    res += dump<memTy>(mem);
+});
+return res;
+}
+```
+*/
+template <typename F, typename Tuple>
+constexpr void constexprFor(Tuple&& tuple, F&& func)
+{
+    constexpr size_t kCount = std::tuple_size_v<std::decay_t<Tuple>>;
+    constexprFor<size_t(0), kCount, 1>([&](auto idx) { func(idx); });
 }
 }
 
@@ -203,3 +255,4 @@ MECS_RTTI_FIELD(std::string);
 static_assert(mecs::HasRTTI<int>);
 
 static_assert(mecs::typeIdOf<int>() != mecs::typeIdOf<unsigned int>());
+static_assert(std::same_as<mecs::concreteType<mecs::typeIdOf<int>()>, int>);
