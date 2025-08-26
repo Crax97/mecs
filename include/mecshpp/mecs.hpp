@@ -308,6 +308,8 @@ public:
     [[nodiscard]]
     MecsSize getNumComponents() const;
     [[nodiscard]]
+    mecs::ComponentID getComponentIDByName(const std::string& name) const;
+    [[nodiscard]]
     mecs::ComponentID getComponentIDByIndex(MecsSize index) const;
     [[nodiscard]]
     const ComponentInfo& getComponentInfoByIndex(MecsSize index) const;

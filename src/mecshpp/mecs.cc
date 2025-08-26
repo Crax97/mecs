@@ -61,6 +61,11 @@ MecsSize Registry::getNumComponents() const
 {
     return mecsRegistryGetNumComponents(mHandle);
 }
+mecs::ComponentID Registry::getComponentIDByName(const std::string& name) const
+{
+    return { mecsGetComponentIDByName(mHandle, name.c_str()) };
+}
+
 mecs::ComponentID Registry::getComponentIDByIndex(MecsSize index) const
 {
     return { mecsGetComponentIDByIndex(mHandle, index) };

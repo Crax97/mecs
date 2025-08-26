@@ -211,6 +211,21 @@ MecsSize mecsRegistryGetNumComponents(MecsRegistry* reg)
     MECS_ASSERT(reg != nullptr && "reg must not be null");
     return reg->components.count();
 }
+
+MecsComponentID mecsGetComponentIDByName(MecsRegistry* reg, const char* name)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+
+    MecsSize numComponents = reg->components.count();
+    for (MecsSize i = 0; i < numComponents; i++) {
+        const ComponentInfo& component = reg->components[i];
+        if (mecsStrEqual(component.name, name)) {
+            return static_cast<MecsComponentID>(i);
+        }
+    }
+    return MECS_INVALID;
+}
+
 MecsComponentID mecsGetComponentIDByIndex(MecsRegistry* reg, MecsSize index)
 {
     MECS_ASSERT(reg != nullptr && "reg must not be null");

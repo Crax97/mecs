@@ -19,6 +19,9 @@ MecsSize MECS_API mecsRegistryGetNumPrefabs(MecsRegistry* reg);
 
 MecsSize MECS_API mecsRegistryGetNumComponents(MecsRegistry* reg);
 
+// Finds the componentID with the given name: if none is found, MECS_INVALID is returned
+MecsComponentID MECS_API mecsGetComponentIDByName(MecsRegistry* reg, const char* name);
+
 // Asserts if the index is not valid, otherwise it always returns a valid MecsComponentID
 MecsComponentID MECS_API mecsGetComponentIDByIndex(MecsRegistry* reg, MecsSize index);
 
