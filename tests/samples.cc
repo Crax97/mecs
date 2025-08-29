@@ -266,6 +266,10 @@ TEST_CASE("C++ sample")
     mecs::EntityID enemy2 = world.spawnEntityPrefab(enemyCharacterPrefab)
                                 .setComponent<Position>(15, 0, 0);
 
+    REQUIRE(world.entityGetNumComponents(player) == 4);
+    REQUIRE(world.entityGetNumComponents(enemy0) == 4);
+    REQUIRE(world.entityGetNumComponents(enemy1) == 4);
+
     for (int i = 0; i < 100; i++) {
         world.spawnEntityPrefab(meshPrefab)
             .setComponent<Mesh>("Mesh" + std::to_string(i));

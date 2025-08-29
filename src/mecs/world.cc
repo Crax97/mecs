@@ -75,8 +75,14 @@ ArchetypeID findArchetype(MecsWorld* world, const BitSet& archetypeBitset)
     }
 
     ArchetypeID archID = world->archetypes.count();
+    MecsVec<MecsComponentID> components;
+    archetypeBitset.forEach([&](MecsSize idx) {
+        components.push(world->memAllocator, static_cast<MecsComponentID>(idx));
+    });
+
     RowStorage storage = RowStorage { std::move(archetypeBitset.clone(world->memAllocator)), world };
-    world->archetypes.push(world->memAllocator, { .storage = std::move(storage) });
+
+    world->archetypes.push(world->memAllocator, { .storage = std::move(storage), .componentIDs = std::move(components) });
 
     world->newEvents.push(world->memAllocator, WorldEvent {
                                                    .kind = WorldEventKind::eNewArchetype,
@@ -168,6 +174,7 @@ void mecsWorldFree(MecsWorld* world)
 
     world->archetypes.forEach([world](Archetype& bucket) {
         bucket.storage.destroy(world->memAllocator);
+        bucket.componentIDs.destroy(world->memAllocator);
         bucket.rowToEntity.destroy(world->memAllocator);
     });
     world->archetypes.destroy(world->memAllocator);
@@ -334,6 +341,22 @@ void mecsWorldRemoveComponent(MecsWorld* world, MecsEntityID entity, MecsCompone
                                                    .componentID = component,
                                                });
 }
+MecsSize mecsWorldEntityGetNumComponents(MecsWorld* world, MecsEntityID entity)
+{
+    MECS_ASSERT(world && world->registry);
+
+    MecsEntity* ent = world->entities.at(entity);
+    const Archetype& archetype = world->archetypes[ent->archetype];
+    return archetype.componentIDs.count();
+}
+MecsComponentID mecsWorldEntityGetComponentByIndex(MecsWorld* world, MecsEntityID entity, MecsSize index)
+{
+    MecsEntity* ent = world->entities.at(entity);
+    const Archetype& archetype = world->archetypes[ent->archetype];
+    if (!archetype.componentIDs.isValid(index)) { return MECS_INVALID; }
+    return archetype.componentIDs[index];
+}
+
 void mecsWorldDestroyEntity(MecsWorld* const world, MecsEntityID entityID)
 {
     MECS_ASSERT(world != nullptr && "Cannot pass a null world");

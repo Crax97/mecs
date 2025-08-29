@@ -119,7 +119,14 @@ void World::entityRemoveComponent(EntityID entity, ComponentID component)
 {
     mecsWorldRemoveComponent(mHandle, entity.id(), component.id());
 }
-
+MecsSize World::entityGetNumComponents(EntityID entity) const
+{
+    return mecsWorldEntityGetNumComponents(mHandle, entity.id());
+}
+ComponentID World::entityGetComponentByIndex(EntityID entity, MecsSize index) const
+{
+    return { mecsWorldEntityGetComponentByIndex(mHandle, entity.id(), index) };
+}
 void World::destroyEntity(EntityID entity)
 {
     mecsWorldDestroyEntity(mHandle, entity.id());

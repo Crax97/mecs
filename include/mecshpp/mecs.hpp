@@ -376,6 +376,10 @@ public:
     [[nodiscard]]
     void* entityGetComponent(EntityID entity, ComponentID component) const;
     void entityRemoveComponent(EntityID entity, ComponentID component);
+    [[nodiscard]]
+    MecsSize entityGetNumComponents(EntityID entity) const;
+    [[nodiscard]]
+    ComponentID entityGetComponentByIndex(EntityID entity, MecsSize index) const;
     void destroyEntity(EntityID entity);
     void flushEvents();
 

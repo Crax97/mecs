@@ -208,6 +208,7 @@ struct MecsRegistry_t {
 };
 struct Archetype {
     RowStorage storage;
+    MecsVec<MecsComponentID> componentIDs;
     MecsVec<MecsEntityID> rowToEntity; // Tracks to which entity each row belongs;
 };
 

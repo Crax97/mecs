@@ -438,8 +438,11 @@ public:
     [[nodiscard]]
     BitSet clone(const MecsAllocator& allocator) const;
 
+    [[nodiscard]]
+    MecsSize count() const;
+
     template <typename F>
-    void forEach(F&& func)
+    void forEach(F&& func) const
     {
         MecsSize numBits = sizeof(Word) * 8 * mWords.count(); // NOLINT
         for (MecsSize i = 0; i < numBits; i++) {

@@ -11,6 +11,8 @@ MECS_API MecsEntityID mecsWorldSpawnEntity(MecsWorld* world, const MecsEntityInf
 MECS_API MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID, const MecsEntityInfo* entityInfo);
 MECS_API bool mecsWorldEntityHasComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component);
 MECS_API void* mecsWorldEntityGetComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component);
+MECS_API MecsSize mecsWorldEntityGetNumComponents(MecsWorld* world, MecsEntityID entity);
+MECS_API MecsComponentID mecsWorldEntityGetComponentByIndex(MecsWorld* world, MecsEntityID entity, MecsSize index);
 MECS_API void* mecsWorldAddComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component);
 MECS_API void mecsWorldRemoveComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID componentInstance);
 MECS_API void mecsWorldDestroyEntity(MecsWorld* world, MecsEntityID entityID);

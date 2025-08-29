@@ -181,6 +181,18 @@ BitSet BitSet::clone(const MecsAllocator& allocator) const
     return cloneSet;
 }
 
+MecsSize BitSet::count() const
+{
+    MecsSize res = 0;
+    const MecsSize numBits = mWords.count() * sizeof(Word);
+    for (MecsSize i = 0; i < numBits; i++) {
+        const Word mask = 1 << (i % sizeof(Word));
+        const Word index = i / sizeof(Word);
+        res += (mWords[index] & mask) > 0 ? 1 : 0;
+    }
+    return res;
+}
+
 bool BitSet::operator==(const BitSet& other) const
 {
     if (other.mWords.count() != mWords.count()) {
