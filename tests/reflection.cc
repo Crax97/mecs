@@ -49,21 +49,21 @@ TEST_CASE("C++ reflection sample")
                                 .withComponent<Foo>(42, 3.14F)
                                 .withComponent<Bar>("DuffyDuck");
 
-    constexpr auto kMembersFoo = mecs::rttiOf<Foo>::kMembers;
-    constexpr auto kMembersBar = mecs::rttiOf<Bar>::kMembers;
+    const auto& fooMembers = static_cast<const mecs::RTTIStruct&>(mecs::rttiOf<Foo>()).members;
+    const auto& barMembers = static_cast<const mecs::RTTIStruct&>(mecs::rttiOf<Bar>()).members;
 
-    static_assert(kMembersFoo.size() == 2);
-    static_assert(kMembersBar.size() == 1);
-    REQUIRE(std::string(kMembersFoo[0].name) == "foo");
-    REQUIRE(std::string(kMembersFoo[1].name) == "bar");
-    REQUIRE(std::string(kMembersBar[0].name) == "name");
-    static_assert(kMembersBar[0].typeID == mecs::typeIdOf<std::string>());
+    REQUIRE(fooMembers.size() == 2);
+    REQUIRE(barMembers.size() == 1);
+    REQUIRE(std::string(fooMembers[0].name) == "foo");
+    REQUIRE(std::string(fooMembers[1].name) == "bar");
+    REQUIRE(std::string(barMembers[0].name) == "name");
+    REQUIRE(barMembers[0].memberRtti->typeID == mecs::typeIdOf<std::string>());
 
     void* foo = &world.entityGetComponent<Foo>(entity);
     void* bar = &world.entityGetComponent<Bar>(entity);
 
-    REQUIRE(*reinterpret_cast<int*>(kMembersFoo[0].getMemberFn(foo)) == 42);
-    REQUIRE(*reinterpret_cast<float*>(kMembersFoo[1].getMemberFn(foo)) == 3.14F);
-    REQUIRE(*reinterpret_cast<std::string*>(kMembersBar[0].getMemberFn(bar)) == "DuffyDuck");
+    REQUIRE(*reinterpret_cast<int*>(fooMembers[0].getMemberFn(foo)) == 42);
+    REQUIRE(*reinterpret_cast<float*>(fooMembers[1].getMemberFn(foo)) == 3.14F);
+    REQUIRE(*reinterpret_cast<std::string*>(barMembers[0].getMemberFn(bar)) == "DuffyDuck");
 }
 // NOLINTEND

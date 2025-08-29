@@ -80,7 +80,16 @@ struct RegistrationInfo {
     inline static mecs::ComponentID mComponentId {};
     static mecs::ComponentID init(MecsRegistry* reg)
     {
-        const ComponentInfo& componentInfo = rttiOf<T>::componentInfo();
+        const auto& rtti = rttiOf<T>();
+        const ComponentInfo componentInfo {
+            .typeID = rtti.typeID,
+            .name = rtti.name,
+            .size = rtti.size,
+            .align = rtti.align,
+            .init = rtti.init,
+            .copy = rtti.copy,
+            .destroy = rtti.destroy
+        };
         mComponentId = { mecsRegistryAddRegistration(reg, &componentInfo) };
         return mComponentId;
     }
