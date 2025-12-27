@@ -52,7 +52,6 @@ else()
 endif()
 
 if(MECS_COMPILE_TESTS)
-    add_subdirectory(thirdparty/catch2)
 
     add_executable(mecs_tests
         tests/base.cc
@@ -61,10 +60,13 @@ if(MECS_COMPILE_TESTS)
         tests/test_private.cc
         tests/samples.cc
         tests/reflection.cc
+	thirdparty/catch2/catch_amalgamated.cpp
     )
 
-    target_include_directories(mecs_tests PRIVATE src/mecs)
-    target_link_libraries(mecs_tests PRIVATE mecshpp MecsCatch2)
+
+    target_include_directories(mecs_tests PRIVATE src/mecs SYSTEM thirdparty/catch2/)
+    target_compile_definitions(mecs_tests PRIVATE -DCATCH_AMALGAMATED_CUSTOM_MAIN)
+    target_link_libraries(mecs_tests PRIVATE mecshpp)
     set_target_properties(mecs_tests PROPERTIES C_STANDARD 23 C_STANDARD_REQUIRED ON CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
     if(MECS_TESTS_LEAK_DETECTION)
         message(STATUS "Enabling leak detection in tests")

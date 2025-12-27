@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef CATCH_AMALGAMATED_CUSTOM_MAIN
-#define CATCH_AMALGAMATED_CUSTOM_MAIN
-#endif
 #include <catch_amalgamated.hpp>
 
 #include "mecs/base.h"

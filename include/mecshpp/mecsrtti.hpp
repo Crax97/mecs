@@ -12,15 +12,15 @@
 #include <vector>
 
 #define MECS_RTTI_FRIEND(Type) \
-    friend struct ::mecs::RTTIDefine<Type>;
+    friend struct mecs::RTTIDefine<Type>;
 
 #define MECS_RTTI_STRUCT_PRELUDE(Type, Name, Kind)                                               \
     template <>                                                                                  \
-    struct ::mecs::ConcreteType<::mecs::detail::fnv1a(Name, sizeof(Name) - 1)> {                 \
+    struct mecs::ConcreteType<::mecs::detail::fnv1a(Name, sizeof(Name) - 1)> {                 	 \
         using kConcrete = Type;                                                                  \
     };                                                                                           \
     template <>                                                                                  \
-    struct ::mecs::RTTIDefine<Type> {                                                            \
+    struct mecs::RTTIDefine<Type> {                                                              \
         using MecsCurrentT = Type;                                                               \
         constexpr static ::mecs::RttiKind kKind = Kind;                                          \
         constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(Name, sizeof(Name) - 1); \
@@ -71,7 +71,7 @@
         using kConcrete = Type;                                                                    \
     };                                                                                             \
     template <>                                                                                    \
-    struct ::mecs::RTTIDefine<Type> {                                                              \
+    struct mecs::RTTIDefine<Type> {                                                                \
         using MecsCurrentT = Type;                                                                 \
         constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
         constexpr static MecsSize kSizeOf = sizeof(Type);                                          \
@@ -115,7 +115,7 @@
 
 #define MECS_RTTI_FIELD(Type)                                                                      \
     template <>                                                                                    \
-    struct ::mecs::RTTIDefine<Type> {                                                              \
+    struct mecs::RTTIDefine<Type> {                                                                \
         using MecsCurrentT = Type;                                                                 \
         constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
         constexpr static MecsSize kSizeOf = sizeof(Type);                                          \

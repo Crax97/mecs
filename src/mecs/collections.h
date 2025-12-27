@@ -53,7 +53,7 @@ constexpr MecsSize growCount(MecsSize size)
         return 4;
     }
     // 1.5 growth factor
-    return size + std::max(size / 2, 1ULL); // NOLINT not a magic number
+    return size + std::max(size / 2, (MecsSize)(1)); // NOLINT not a magic number
 }
 
 using GenIndex = MecsU32;
@@ -71,59 +71,6 @@ using TaggedGenIndex = union TaggedGenIndexT {
 using ElementInfo = struct ElementInfoT {
     MecsSize size { 0 };
     MecsSize align { 0 };
-};
-
-template <typename T>
-class MecsStdAllocator {
-public:
-    constexpr MecsStdAllocator(MecsAllocator allocator) noexcept
-        : mAllocator(allocator)
-    {
-    }
-
-    constexpr MecsStdAllocator(const MecsStdAllocator& rhs) = default;
-    constexpr MecsStdAllocator& operator=(const MecsStdAllocator& rhs) = default;
-    constexpr MecsStdAllocator(MecsStdAllocator&& rhs) = default;
-    constexpr MecsStdAllocator& operator=(MecsStdAllocator&& rhs) = default;
-
-    constexpr auto operator<=>(const MecsStdAllocator& rhs) const noexcept = default;
-    constexpr bool operator==(const MecsStdAllocator& rhs) const noexcept
-    {
-        return (
-            rhs.mAllocator.memAlloc == mAllocator.memAlloc && rhs.mAllocator.memRealloc == mAllocator.memRealloc && rhs.mAllocator.memFree == mAllocator.memFree && rhs.mAllocator.userData == mAllocator.userData);
-    }
-
-    template <typename U>
-    constexpr MecsStdAllocator(const MecsStdAllocator<U>& other) noexcept
-        : mAllocator(other.mAllocator)
-    {
-    }
-
-    using value_type = T;
-    using size_type = std::size_t;
-    using difference_type = std::ptrdiff_t;
-    using propagate_on_container_move_assignment = std::true_type;
-
-    constexpr value_type* allocate(std::size_t n)
-    {
-        return mecsCalloc<T>(mAllocator, n);
-    }
-    constexpr void deallocate(T* ptr, std::size_t n)
-    {
-        return mecsFree(mAllocator, ptr);
-    }
-    constexpr std::allocation_result<T*, std::size_t> allocate_at_least(std::size_t n) /// NOLINT std function
-    {
-        return { mecsCalloc<T>(mAllocator, n), n };
-    }
-
-    template <typename... Args>
-    void construct(T* ptr, Args&&... args)
-    {
-        new (ptr) T(std::forward<Args...>(args)...);
-    }
-
-    MecsAllocator mAllocator;
 };
 
 template <typename T>
