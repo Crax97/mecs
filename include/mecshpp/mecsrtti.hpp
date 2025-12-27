@@ -67,7 +67,7 @@
 
 #define MECS_RTTI_ENUM_BEGIN(Type)                                                                 \
     template <>                                                                                    \
-    struct ::mecs::ConcreteType<::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1)> {                 \
+    struct mecs::ConcreteType<::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1)> {                   \
         using kConcrete = Type;                                                                    \
     };                                                                                             \
     template <>                                                                                    \
