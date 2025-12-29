@@ -182,7 +182,7 @@ namespace detail {
     template <typename T>
     struct ParameterInfo<With<T>> {
         using RawType = std::remove_reference_t<std::remove_const_t<T>>;
-        using Pointer = nullptr_t;
+        using Pointer = std::nullptr_t;
         constexpr static bool kIsConst = true;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
@@ -197,7 +197,7 @@ namespace detail {
     template <typename T>
     struct ParameterInfo<Not<T>> {
         using RawType = std::remove_reference_t<std::remove_const_t<T>>;
-        using Pointer = nullptr_t;
+        using Pointer = std::nullptr_t;
         constexpr static bool kIsConst = true;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
