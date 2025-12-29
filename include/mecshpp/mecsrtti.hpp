@@ -14,22 +14,22 @@
 #define MECS_RTTI_FRIEND(Type) \
     friend struct mecs::RTTIDefine<Type>;
 
-#define MECS_RTTI_STRUCT_PRELUDE(Type, Name, Kind)                                               \
-    template <>                                                                                  \
-    struct mecs::ConcreteType<::mecs::detail::fnv1a(Name, sizeof(Name) - 1)> {                 	 \
-        using kConcrete = Type;                                                                  \
-    };                                                                                           \
-    template <>                                                                                  \
-    struct mecs::RTTIDefine<Type> {                                                              \
-        using MecsCurrentT = Type;                                                               \
-        constexpr static ::mecs::RttiKind kKind = Kind;                                          \
-        constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(Name, sizeof(Name) - 1); \
-        constexpr static MecsSize kSizeOf = sizeof(Type);                                        \
-        constexpr static MecsSize kAlignOf = alignof(Type);                                      \
-                                                                                                 \
-        constexpr static const char* kName = Name;                                               \
-        static const ::mecs::RTTI& get()                                                         \
-        {                                                                                        \
+#define MECS_RTTI_STRUCT_PRELUDE(Type, Name, Kind)                                            \
+    template <>                                                                               \
+    struct mecs::ConcreteType<::mecs::detail::fnv1a(Name, sizeof(Name) - 1)> {                \
+        using kConcrete = Type;                                                               \
+    };                                                                                        \
+    template <>                                                                               \
+    struct mecs::RTTIDefine<Type> {                                                           \
+        using MecsCurrentT = Type;                                                            \
+        constexpr static ::mecs::RttiKind kKind = Kind;                                       \
+        inline static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(Name, sizeof(Name) - 1); \
+        constexpr static MecsSize kSizeOf = sizeof(Type);                                     \
+        constexpr static MecsSize kAlignOf = alignof(Type);                                   \
+                                                                                              \
+        constexpr static const char* kName = Name;                                            \
+        static const ::mecs::RTTI& get()                                                      \
+        {                                                                                     \
             static auto membersContainer = mecs::detail::MemberContainerZero { }
 
 #define MECS_RTTI_STRUCT_BEGIN(Type) \
@@ -65,20 +65,20 @@
     }                                                                                         \
     ;
 
-#define MECS_RTTI_ENUM_BEGIN(Type)                                                                 \
-    template <>                                                                                    \
-    struct mecs::ConcreteType<::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1)> {                   \
-        using kConcrete = Type;                                                                    \
-    };                                                                                             \
-    template <>                                                                                    \
-    struct mecs::RTTIDefine<Type> {                                                                \
-        using MecsCurrentT = Type;                                                                 \
-        constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
-        constexpr static MecsSize kSizeOf = sizeof(Type);                                          \
-        constexpr static MecsSize kAlignOf = alignof(Type);                                        \
-                                                                                                   \
-        constexpr static const char* kName = #Type;                                                \
-        using UnderlyingType = std::underlying_type_t<Type>;                                       \
+#define MECS_RTTI_ENUM_BEGIN(Type)                                                              \
+    template <>                                                                                 \
+    struct mecs::ConcreteType<::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1)> {                \
+        using kConcrete = Type;                                                                 \
+    };                                                                                          \
+    template <>                                                                                 \
+    struct mecs::RTTIDefine<Type> {                                                             \
+        using MecsCurrentT = Type;                                                              \
+        inline static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
+        constexpr static MecsSize kSizeOf = sizeof(Type);                                       \
+        constexpr static MecsSize kAlignOf = alignof(Type);                                     \
+                                                                                                \
+        constexpr static const char* kName = #Type;                                             \
+        using UnderlyingType = std::underlying_type_t<Type>;                                    \
         constexpr static auto variantsContainer = ::mecs::detail::VariantContainer<0> { }
 
 #define MECS_RTTI_ENUM_VARIANT(VariantValue, Name) \
@@ -113,31 +113,31 @@
     MECS_RTTI_STRUCT_BEGIN(Type) \
     MECS_RTTI_STRUCT_END()
 
-#define MECS_RTTI_FIELD(Type)                                                                      \
-    template <>                                                                                    \
-    struct mecs::RTTIDefine<Type> {                                                                \
-        using MecsCurrentT = Type;                                                                 \
-        constexpr static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
-        constexpr static MecsSize kSizeOf = sizeof(Type);                                          \
-        constexpr static MecsSize kAlignOf = alignof(Type);                                        \
-                                                                                                   \
-        constexpr static const char* kName = #Type;                                                \
-        static const ::mecs::RTTI& get()                                                           \
-        {                                                                                          \
-            static ::mecs::RTTI rtti = []() {                                                      \
-                ::mecs::RTTI rttiI;                                                                \
-                rttiI.name = kName;                                                                \
-                rttiI.typeID = kTypeID;                                                            \
-                rttiI.kind = RttiKind::eField;                                                     \
-                rttiI.size = sizeof(MecsCurrentT);                                                 \
-                rttiI.align = alignof(MecsCurrentT);                                               \
-                rttiI.init = ::mecs::detail::init<MecsCurrentT>;                                   \
-                rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                   \
-                rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                             \
-                return rttiI;                                                                      \
-            }();                                                                                   \
-            return rtti;                                                                           \
-        }                                                                                          \
+#define MECS_RTTI_FIELD(Type)                                                                   \
+    template <>                                                                                 \
+    struct mecs::RTTIDefine<Type> {                                                             \
+        using MecsCurrentT = Type;                                                              \
+        inline static ::mecs::TypeID kTypeID = ::mecs::detail::fnv1a(#Type, sizeof(#Type) - 1); \
+        constexpr static MecsSize kSizeOf = sizeof(Type);                                       \
+        constexpr static MecsSize kAlignOf = alignof(Type);                                     \
+                                                                                                \
+        constexpr static const char* kName = #Type;                                             \
+        static const ::mecs::RTTI& get()                                                        \
+        {                                                                                       \
+            static ::mecs::RTTI rtti = []() {                                                   \
+                ::mecs::RTTI rttiI;                                                             \
+                rttiI.name = kName;                                                             \
+                rttiI.typeID = kTypeID;                                                         \
+                rttiI.kind = RttiKind::eField;                                                  \
+                rttiI.size = sizeof(MecsCurrentT);                                              \
+                rttiI.align = alignof(MecsCurrentT);                                            \
+                rttiI.init = ::mecs::detail::init<MecsCurrentT>;                                \
+                rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                \
+                rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                          \
+                return rttiI;                                                                   \
+            }();                                                                                \
+            return rtti;                                                                        \
+        }                                                                                       \
     }
 
 namespace mecs {
@@ -382,7 +382,7 @@ namespace detail {
 template <typename T>
 struct RTTIDefine<std::vector<T>> {
     constexpr static ::mecs::RttiKind kKind = mecs::RttiKind::eVec;
-    constexpr static mecs::TypeID kTypeID = typeIdOf<T>();
+    inline static mecs::TypeID kTypeID = mecs::typeIdOf<T>();
 
     constexpr static MecsSize getSize(const void* ptr)
     {
