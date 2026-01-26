@@ -490,7 +490,7 @@ public:
     TupleType first()
     {
         begin();
-        bool firstFound = advance();
+        [[maybe_unused]] bool firstFound = advance();
         MECS_ASSERT(firstFound && "At least one entity must match when calling first()");
         return get();
     }
