@@ -258,6 +258,54 @@ MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID,
     return entityID;
 }
 
+MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* destinationWorld, MecsEntityID entity)
+{
+    MECS_ASSERT(mecsWorldGetRegistry(world) == mecsWorldGetRegistry(destinationWorld) && "source and destination worlds must have been spawned by the same registry");
+
+    MecsRegistry* registry = mecsWorldGetRegistry(world);
+    MecsEntity* source = world->entities.at(entity);
+
+    MecsEntityID newEntityID = destinationWorld->entities.push(destinationWorld->memAllocator, {});
+
+    const Archetype& sourceArch = world->archetypes.at(source->archetype);
+
+    ArchetypeID archetype = findArchetype(destinationWorld, sourceArch.storage.bitset());
+    Archetype& destArch = destinationWorld->archetypes.at(archetype);
+    MecsSize row = destArch.storage.allocateRow(destinationWorld->memAllocator);
+    destArch.rowToEntity.ensureSize(world->memAllocator, row + 1);
+    destArch.rowToEntity[row] = newEntityID;
+
+    MecsEntity destEntity = {};
+    if (source->name != nullptr) {
+        destEntity.name = mecsStrDup(world->memAllocator, source->name);
+    }
+    destEntity.status = EntityStatus::eNewlySpawned;
+    destEntity.prefabID = source->prefabID;
+    destEntity.archetype = archetype;
+    destEntity.archetypeRow = row;
+
+    sourceArch.componentIDs.forEach([&](MecsComponentID component) {
+        const void* sourceRow = sourceArch.storage.getRowComponent(component, source->archetypeRow);
+        void* destRow = destArch.storage.getRowComponent(component, destEntity.archetypeRow);
+
+        ComponentInfo& info = registry->components.at(component);
+        if (info.copy) {
+            info.copy(sourceRow, destRow, info.size);
+        } else {
+            mecsMemCpy(static_cast<const char*>(sourceRow), info.size, static_cast<char*>(destRow), info.size);
+        }
+    });
+
+    *destinationWorld->entities.at(newEntityID) = destEntity;
+
+    destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
+                                                              .kind = WorldEventKind::eNewEntity,
+                                                              .entityID = newEntityID,
+                                                          });
+
+    return newEntityID;
+}
+
 void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsComponentID component)
 {
     MECS_ASSERT(world && world->registry);

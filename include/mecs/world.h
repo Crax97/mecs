@@ -8,6 +8,7 @@ MECS_EXTERNCPP()
 MECS_API MecsWorld* mecsWorldCreate(MecsRegistry* registry, const MecsWorldCreateInfo* mecsWorldCreateInfo);
 MECS_API void mecsWorldFree(MecsWorld* world);
 MECS_API MecsEntityID mecsWorldSpawnEntity(MecsWorld* world, const MecsEntityInfo* entityInfo);
+MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* destinationWorld, MecsEntityID entity);
 MECS_API MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID, const MecsEntityInfo* entityInfo);
 MECS_API bool mecsWorldEntityHasComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component);
 MECS_API void* mecsWorldEntityGetComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component);

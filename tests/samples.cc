@@ -24,7 +24,7 @@ TEST_CASE("C sample")
     struct Player { };
     struct Enemy { };
     struct Mesh {
-        std::string meshName;
+        int meshName;
     };
 
     MecsRegistryCreateInfo regInfo {};
@@ -263,7 +263,7 @@ TEST_CASE("C++ sample")
                                 .setComponent<Position>(-9, 0, 0);
     mecs::EntityID enemy1 = world.spawnEntityPrefab(enemyCharacterPrefab)
                                 .setComponent<Position>(9, 0, 0);
-    mecs::EntityID enemy2 = world.spawnEntityPrefab(enemyCharacterPrefab)
+    mecs::EntityID enemy2 = world.duplicateEntity(enemy1)
                                 .setComponent<Position>(15, 0, 0);
 
     REQUIRE(world.entityGetNumComponents(player) == 4);

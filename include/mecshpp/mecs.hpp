@@ -334,7 +334,7 @@ public:
     }
 
     template <typename F>
-    void forEachRegisteredComponent(F&& func)
+    void forEachRegisteredComponent(F&& func) const
     {
         const MecsSize numComponents = getNumComponents();
         for (MecsSize i = 0; i < numComponents; i++) {
@@ -380,6 +380,8 @@ public:
 
     EntityBuilder spawnEntity(const MecsEntityInfo& entityInfo = {});
     EntityBuilder spawnEntityPrefab(PrefabID prefab, const MecsEntityInfo& entityInfo = {});
+    EntityBuilder duplicateEntity(World& destinationWorld, EntityID sourceEntity);
+    EntityBuilder duplicateEntity(EntityID sourceEntity) { return duplicateEntity(*this, sourceEntity); }
     void entityAddComponent(EntityID entity, ComponentID component);
     [[nodiscard]]
     bool entityHasComponent(EntityID entity, ComponentID component) const;
@@ -491,7 +493,9 @@ public:
     TupleType first()
     {
         begin();
-        [[maybe_unused]] bool firstFound = advance();
+        [[maybe_unused]]
+        bool firstFound
+            = advance();
         MECS_ASSERT(firstFound && "At least one entity must match when calling first()");
         return get();
     }

@@ -99,6 +99,10 @@ EntityBuilder World::spawnEntityPrefab(PrefabID prefab, const MecsEntityInfo& en
 {
     return { mHandle, mecsWorldSpawnEntityPrefab(mHandle, prefab.id(), &entityInfo) };
 }
+EntityBuilder World::duplicateEntity(World& destinationWorld, EntityID sourceEntity)
+{
+    return { mHandle, mecsWorldDuplicateEntity(mHandle, destinationWorld.getHandle(), sourceEntity.id()) };
+}
 
 bool World::entityHasComponent(EntityID entity, ComponentID component) const
 {
