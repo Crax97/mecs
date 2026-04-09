@@ -88,6 +88,7 @@ struct RegistrationInfo {
             .align = rtti.align,
             .init = rtti.init,
             .copy = rtti.copy,
+            .move = rtti.move,
             .destroy = rtti.destroy
         };
         mComponentId = { mecsRegistryAddRegistration(reg, &componentInfo) };

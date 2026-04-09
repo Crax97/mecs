@@ -315,6 +315,8 @@ private:
     T* mData { nullptr };
 };
 
+using MecsMoveFunc = void(*)(const void* source, void* dest, size_t numElements);
+
 class MecsVecUnmanaged {
 public:
     MecsVecUnmanaged() = default;
@@ -341,7 +343,7 @@ public:
         return index < mCount;
     }
 
-    MecsSize push(const MecsAllocator& allocator, void* value);
+    MecsSize push(const MecsAllocator& allocator, void* value, const ComponentInfo& componentInfo);
     void pop(void* valuePtr);
 
     [[nodiscard]]
@@ -359,7 +361,7 @@ public:
     }
 
 private:
-    void grow(const MecsAllocator& allocator, MecsSize size);
+    void grow(const MecsAllocator& allocator, MecsSize size, const ComponentInfo& componentInfo);
     ElementInfo mElementInfo;
     MecsSize mCount { 0 };
     MecsSize mCapacity { 0 };

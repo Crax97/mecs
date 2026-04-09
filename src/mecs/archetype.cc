@@ -3,6 +3,14 @@
 #include "private.h"
 #include <cstring>
 
+void mecsDefaultInit(void*) { }
+void mecsDefaultMove(const void* source, void* dest, MecsSize size)
+{
+    memcpy(dest, source, size);
+}
+
+void mecsDefaultDestroy(void*) { }
+
 RowStorage::RowStorage(BitSet componentSet, MecsWorld* world)
     : mCmponentSet(std::move(componentSet))
     , mRegistry(world->registry)
@@ -11,7 +19,10 @@ RowStorage::RowStorage(BitSet componentSet, MecsWorld* world)
     mCmponentSet.forEach([&](MecsComponentID componentID) {
         mStorages.ensureSize(world->memAllocator, componentID + 1);
         const ComponentInfo& info = mRegistry->components[componentID];
-        mStorages[componentID] = MecsVecUnmanaged(ElementInfo { info.size, info.align });
+        mStorages[componentID] = MecsVecUnmanaged(ElementInfo {
+            .size=info.size,
+            .align=info.align,
+        });
     });
 }
 
@@ -38,8 +49,9 @@ MecsSize RowStorage::allocateRow(const MecsAllocator& alloc)
     } else {
         rowIndex = mCapacity++;
         mCmponentSet.forEach([&](MecsComponentID component) {
+            ComponentInfo& info = mRegistry->components[component];
             MecsVecUnmanaged& storage = getStorage(component);
-            storage.push(alloc, nullptr);
+            storage.push(alloc, nullptr, info);
         });
     }
     MECS_ASSERT(!mTakenRows.test(rowIndex));
@@ -132,7 +144,7 @@ MecsSize RowStorage::rows() const
     return mCount;
 }
 
-MecsVecUnmanaged& RowStorage::getStorage(MecsComponentID component)
+MecsVecUnmanaged& RowStorage::getStorage(const MecsComponentID component) const
 {
     return mStorages[component];
 }

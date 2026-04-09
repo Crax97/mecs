@@ -59,7 +59,7 @@ MecsComponentID ComponentStorage::constructUninitialized(const MecsAllocator& al
         index = mFreeIndices.pop();
         mEntityToIndices.insert(allocator, owner, index);
     } else {
-        index = mComponentStorage.push(allocator, nullptr);
+        index = mComponentStorage.push(allocator, nullptr, {});
         mEntityToIndices.insert(allocator, owner, index);
     }
     void* storage = mComponentStorage.at(index);

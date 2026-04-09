@@ -62,10 +62,6 @@ void mecsOnNewArchetype(MecsWorld* world, ArchetypeID archetypeID)
 
 ArchetypeID findArchetype(MecsWorld* world, const BitSet& archetypeBitset)
 {
-    if (archetypeBitset.allZeroes()) {
-        return MECS_INVALID;
-    }
-
     MecsSize numArchetypes = world->archetypes.count();
     for (MecsSize i = 0; i < numArchetypes; i++) {
         Archetype& testArchetype = world->archetypes[i];
@@ -239,6 +235,17 @@ MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID,
 
     if (prefabID != MECS_INVALID) {
         setupEntityThroughPrefab(world, prefabID, entityID, ent);
+    } else {
+        BitSet bitset;
+        const ArchetypeID defaultArchetype = findArchetype(world, bitset);
+        bitset.clear();
+
+        Archetype& archetype = world->archetypes[defaultArchetype];
+        const MecsSize row = archetype.storage.allocateRow(world->memAllocator);
+        ent.archetypeRow = row;
+        ent.archetype = defaultArchetype;
+        archetype.rowToEntity.ensureSize(world->memAllocator, row + 1);
+        archetype.rowToEntity[row] = entityID;
     }
 
     *world->entities.at(entityID) = ent;

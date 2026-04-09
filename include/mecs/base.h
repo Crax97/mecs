@@ -47,7 +47,9 @@ typedef void (*PFNMecsFree)(void* userData, void* ptr);
 
 typedef void (*PFNMecsComponentInit)(void* mem);
 typedef void (*PFNMecsComponentCopy)(const void* source, void* dest,
-    MecsSize componentSize);
+MecsSize byteSize);
+typedef void (*PFNMecsComponentMove)(void* source, void* dest,
+    MecsSize byteSize);
 typedef void (*PFNMecsComponentDestroy)(void* mem);
 
 typedef struct MECS_API MecsRegistry_t MecsRegistry;
@@ -93,6 +95,9 @@ typedef struct ComponentInfo {
 
     // Can be null, called when this component is copied in memory
     PFNMecsComponentCopy copy;
+
+    // Can be null, called when this component is moved in memory
+    PFNMecsComponentMove move;
 
     // Can be null, called when this component is removed from an entity
     // to deinitialize the component

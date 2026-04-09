@@ -55,6 +55,7 @@
         rttiI.align = alignof(MecsCurrentT);                                                  \
         rttiI.init = ::mecs::detail::init<MecsCurrentT>;                                      \
         rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                      \
+        rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                      \
         rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                \
         rttiI.members = { membersContainer.members.begin(), membersContainer.members.end() }; \
         rttiI.methods = { membersContainer.methods.begin(), membersContainer.methods.end() }; \
@@ -98,6 +99,7 @@
             rttiI.align = alignof(MecsCurrentT);                                                                             \
             rttiI.init = ::mecs::detail::init<MecsCurrentT>;                                                                 \
             rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                                                 \
+            rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                                                 \
             rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                                           \
             rttiI.variants = { kVariants.begin(), kVariants.end() };                                                         \
             rttiI.get = [](void* ptr) { return static_cast<MecsU32>(*static_cast<MecsCurrentT*>(ptr)); };                    \
@@ -133,6 +135,7 @@
                 rttiI.align = alignof(MecsCurrentT);                                            \
                 rttiI.init = ::mecs::detail::init<MecsCurrentT>;                                \
                 rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                \
+                rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                \
                 rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                          \
                 return rttiI;                                                                   \
             }();                                                                                \
@@ -185,6 +188,7 @@ struct RTTI {
     MecsSize align;
     PFNMecsComponentInit init;
     PFNMecsComponentCopy copy;
+    PFNMecsComponentMove move;
     PFNMecsComponentDestroy destroy;
 };
 
@@ -360,15 +364,23 @@ namespace detail {
     template <typename T>
     static void copy(const void* src, void* dest, [[maybe_unused]] MecsSize size)
     {
-        T* tDest = reinterpret_cast<T*>(dest);
-        const T* tSrc = reinterpret_cast<const T*>(src);
+        T* tDest = static_cast<T*>(dest);
+        const T* tSrc = static_cast<const T*>(src);
         *tDest = *tSrc;
+    }
+
+    template <typename T>
+    static void move(void* src, void* dest, [[maybe_unused]] MecsSize size)
+    {
+        T* tDest = static_cast<T*>(dest);
+        T* tSrc = static_cast<T*>(src);
+        *tDest = std::move(*tSrc);
     }
 
     template <typename T>
     static void destroy(void* ptr)
     {
-        T* tPtr = reinterpret_cast<T*>(ptr);
+        T* tPtr = static_cast<T*>(ptr);
         tPtr->~T();
     }
 
@@ -431,6 +443,7 @@ struct RTTIDefine<std::vector<T>> {
             res.align = alignof(std::vector<T>);
             res.init = ::mecs::detail::init<std::vector<T>>;
             res.copy = ::mecs::detail::copy<std::vector<T>>;
+            res.move = ::mecs::detail::move<std::vector<T>>;
             res.destroy = ::mecs::detail::destroy<std::vector<T>>;
 
             res.elementRtti = &childRtti;

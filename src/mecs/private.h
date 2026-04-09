@@ -160,7 +160,7 @@ public:
     void destroy(const MecsAllocator& alloc);
 
 private:
-    MecsVecUnmanaged& getStorage(MecsComponentID component);
+    MecsVecUnmanaged& getStorage(MecsComponentID component) const;
     MecsRegistry* mRegistry;
     BitSet mCmponentSet;
     BitSet mTakenRows;

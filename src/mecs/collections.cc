@@ -34,12 +34,13 @@ MecsVecUnmanaged& MecsVecUnmanaged::operator=(MecsVecUnmanaged&& rhs) noexcept
     return *this;
 }
 
-MecsSize MecsVecUnmanaged::push(const MecsAllocator& allocator, void* value)
+MecsSize MecsVecUnmanaged::push(const MecsAllocator& allocator, void* value, const ComponentInfo& componentInfo)
 {
     MECS_ASSERT(allocator.memAlloc != nullptr);
     MECS_ASSERT(mElementInfo.size > 0 && mElementInfo.align > 0);
+    MECS_ASSERT(mElementInfo.size == componentInfo.size);
     if ((mCount + 1) > mCapacity) {
-        grow(allocator, growCount(mCapacity));
+        grow(allocator, growCount(mCapacity), componentInfo);
     }
 
     mCount++;
@@ -47,7 +48,11 @@ MecsSize MecsVecUnmanaged::push(const MecsAllocator& allocator, void* value)
     MecsSize elementIndex = mCount - 1;
     char* destPtr = at(elementIndex);
     if (value != nullptr) {
-        mecsMemCpy(static_cast<char*>(value), mElementInfo.size, destPtr, mElementInfo.size);
+        if (componentInfo.move != nullptr) {
+            componentInfo.move(value, destPtr, mElementInfo.size);
+        } else {
+            mecsMemCpy(static_cast<char*>(value), mElementInfo.size, destPtr, mElementInfo.size);
+        }
     } else {
         memset(destPtr, 0, mElementInfo.size);
     }
@@ -92,7 +97,7 @@ void MecsVecUnmanaged::destroy(const MecsAllocator& allocator)
     mCapacity = 0;
 }
 
-void MecsVecUnmanaged::grow(const MecsAllocator& allocator, MecsSize size)
+void MecsVecUnmanaged::grow(const MecsAllocator& allocator, MecsSize size, const ComponentInfo& componentInfo)
 {
     MECS_ASSERT(allocator.memAlloc != nullptr);
     MecsSize newCount = 1;
@@ -100,7 +105,28 @@ void MecsVecUnmanaged::grow(const MecsAllocator& allocator, MecsSize size)
     if (mCapacity > 0) {
         newCount = mCapacity + size;
     }
-    char* newData = mecsRellocAligned(allocator, mData, mCapacity * mElementInfo.size, newCount * mElementInfo.size, mElementInfo.align);
+    char* newData = mecsCallocAligned<char>(allocator, newCount * mElementInfo.size, mElementInfo.align);
+    if (componentInfo.init != nullptr) {
+        for (MecsSize i = 0; i < mCount; i ++) {
+            componentInfo.init(static_cast<char*>(newData + (i * mElementInfo.size)));
+        }
+    }
+
+    if (componentInfo.move != nullptr) {
+        for (MecsSize i = 0; i < mCount; i ++) {
+            componentInfo.move(static_cast<char*>(mData + (i * mElementInfo.size)), static_cast<char*>(newData + (i * mElementInfo.size)), mElementInfo.size);
+        }
+    } else {
+        mecsMemCpy(mData, mCount * mElementInfo.size, newData, mCount * mElementInfo.size);
+    }
+    if (componentInfo.destroy != nullptr) {
+        for (MecsSize i = 0; i < mCount; i ++) {
+            componentInfo.destroy(static_cast<char*>(mData + (i * mElementInfo.size)));
+        }
+    }
+
+    mecsFree(allocator, mData);
+
 
     mCapacity = newCount;
     mData = newData;
