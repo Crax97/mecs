@@ -4,12 +4,17 @@
 
 #include <cstdio>
 #include <print>
+#ifdef __cpp_lib_stacktrace
 #include <stacktrace>
+#endif
 #include <unordered_map>
 
 #ifdef MECS_TESTS_LEAK_DETECTION
 struct AllocInfo {
+
+#ifdef __cpp_lib_stacktrace
     std::stacktrace stack;
+#endif
     MecsSize size;
     MecsSize align;
 };
@@ -19,7 +24,9 @@ thread_local std::unordered_map<void*, AllocInfo> memAllocations;
 AllocInfo getAllocInfo(MecsSize size, MecsSize align)
 {
     AllocInfo info {};
+#ifdef __cpp_lib_stacktrace
     info.stack = std::stacktrace::current();
+#endif
     info.size = size;
     info.align = align;
     return info;
@@ -61,9 +68,13 @@ void printAllocInfo(void* addr, const AllocInfo& alloc)
 {
     std::println(stderr, "---------------------------");
     std::println(stderr, "Memory leak at {} (lost {} bytes)", addr, alloc.size);
+#ifdef __cpp_lib_stacktrace
     for (const auto& stack : alloc.stack) {
         std::println(stderr, "\t{} -> {}:{} ", stack.description(), stack.source_file(), stack.source_line());
     }
+#else
+    std::println("\t no stacktrace available (missing cpp feature)");
+#endif
 };
 
 void debugAllocatorCheck()
