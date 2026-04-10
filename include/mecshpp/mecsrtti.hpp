@@ -151,6 +151,7 @@ enum class RttiKind : MecsU8 {
     eEnum,
     eField,
     eVec,
+    eCustom,
 };
 
 using GetMemberFn = void* (*)(void*);
@@ -184,6 +185,7 @@ struct RTTI {
     const char* name;
     mecs::TypeID typeID;
     RttiKind kind;
+    MecsSize customRttiKind;
     MecsSize size;
     MecsSize align;
     PFNMecsComponentInit init;
