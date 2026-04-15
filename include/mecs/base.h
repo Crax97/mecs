@@ -40,6 +40,11 @@ typedef MecsU32 MecsEntityID;
 typedef MecsU32 MecsPrefabID;
 typedef MecsU32 MecsComponentID;
 
+typedef struct MECS_API MecsRegistry_t MecsRegistry;
+typedef struct MECS_API MecsWorld_t MecsWorld;
+typedef struct MECS_API MecsWorldIterator_t MecsIterator;
+
+
 typedef void* (*PFNMecsMalloc)(void* userData, MecsSize size, MecsSize align);
 typedef void* (*PFNMecsRealloc)(void* userData, void* old, MecsSize oldSize, MecsSize align,
     MecsSize newSize);
@@ -51,10 +56,8 @@ MecsSize byteSize);
 typedef void (*PFNMecsComponentMove)(void* source, void* dest,
     MecsSize byteSize);
 typedef void (*PFNMecsComponentDestroy)(void* mem);
-
-typedef struct MECS_API MecsRegistry_t MecsRegistry;
-typedef struct MECS_API MecsWorld_t MecsWorld;
-typedef struct MECS_API MecsWorldIterator_t MecsIterator;
+typedef void(*PFNMecsComponentSetup)(MecsWorld* world, void* mem);
+typedef void(*PFNMecsComponentTeardown)(MecsWorld* world, void* mem);
 
 typedef struct MecsAllocator {
     // If null, will use an internal malloc function
@@ -89,8 +92,7 @@ typedef struct ComponentInfo {
     // Must be greater than zero
     MecsSize align;
 
-    // Can be null, called when this component is added to an entity
-    // to initialize the component
+    // Can be null, called to initialize the memory belonging to this component
     PFNMecsComponentInit init;
 
     // Can be null, called when this component is copied in memory
@@ -99,9 +101,15 @@ typedef struct ComponentInfo {
     // Can be null, called when this component is moved in memory
     PFNMecsComponentMove move;
 
-    // Can be null, called when this component is removed from an entity
-    // to deinitialize the component
+    // Can be null, called to deinitialize the memory belonging to this component
     PFNMecsComponentDestroy destroy;
+
+    // Can be null, called when the component is added to an entity
+    PFNMecsComponentSetup setup;
+
+    // Can be null, called when the component is removed from an entity
+    PFNMecsComponentTeardown teardown;
+    
 
 } ComponentInfo;
 

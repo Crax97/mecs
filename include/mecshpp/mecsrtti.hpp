@@ -1,7 +1,6 @@
 #pragma once
 
 #include "mecs/base.h"
-#include "mecshpp/mecsrtti.hpp"
 #include <array>
 #include <concepts>
 #include <cstdint>
@@ -57,6 +56,8 @@
         rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                      \
         rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                      \
         rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                \
+        rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                              \
+        rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                         \
         rttiI.members = { membersContainer.members.begin(), membersContainer.members.end() }; \
         rttiI.methods = { membersContainer.methods.begin(), membersContainer.methods.end() }; \
         return rttiI;                                                                         \
@@ -101,6 +102,8 @@
             rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                                                 \
             rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                                                 \
             rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                                           \
+            rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                                                         \
+            rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                                                    \
             rttiI.variants = { kVariants.begin(), kVariants.end() };                                                         \
             rttiI.get = [](void* ptr) { return static_cast<MecsU32>(*static_cast<MecsCurrentT*>(ptr)); };                    \
             rttiI.set = [](void* ptr, MecsU32 nval) { *static_cast<MecsCurrentT*>(ptr) = static_cast<MecsCurrentT>(nval); }; \
@@ -137,6 +140,8 @@
                 rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                \
                 rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                \
                 rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                          \
+                rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                        \
+                rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                   \
                 return rttiI;                                                                   \
             }();                                                                                \
             return rtti;                                                                        \
@@ -192,6 +197,9 @@ struct RTTI {
     PFNMecsComponentCopy copy;
     PFNMecsComponentMove move;
     PFNMecsComponentDestroy destroy;
+
+    PFNMecsComponentSetup setup;
+    PFNMecsComponentTeardown teardown;
 };
 
 struct RTTIStruct : public RTTI {
@@ -386,6 +394,36 @@ namespace detail {
         tPtr->~T();
     }
 
+    template<typename T>
+    concept HasSetup = requires(T* inst, MecsWorld* world) {
+        {inst->setup(world)};
+    };
+    template<typename T>
+    concept HasTeardown = requires(T* inst, MecsWorld* world) {
+        {inst->teardown(world)};
+    };
+
+    template <typename T>
+    static PFNMecsComponentSetup bindSetup() {
+        if constexpr(HasSetup<T>) {
+            return [](MecsWorld* pWorld, void* ptr) {
+                T* tPtr = reinterpret_cast<T*>(ptr);
+                tPtr->setup(pWorld);
+            };
+        }
+        return nullptr;
+    }
+    template <typename T>
+    static PFNMecsComponentSetup bindTeardown() {
+        if constexpr(HasTeardown<T>) {
+            return [](MecsWorld* pWorld, void* ptr) {
+                T* tPtr = reinterpret_cast<T*>(ptr);
+                tPtr->teardown(pWorld);
+            };
+        }
+        return nullptr;
+    }
+    
     constexpr uint64_t fnv1a(const char* str, size_t n, uint64_t basis = 14695981039346656037U) // NOLINT
     {
         return n == 0 ? basis : fnv1a(str + 1, n - 1, (basis ^ str[0]) * 1099511628211U); // NOLINT
@@ -447,6 +485,8 @@ struct RTTIDefine<std::vector<T>> {
             res.copy = ::mecs::detail::copy<std::vector<T>>;
             res.move = ::mecs::detail::move<std::vector<T>>;
             res.destroy = ::mecs::detail::destroy<std::vector<T>>;
+            res.setup = nullptr;
+            res.teardown = nullptr;
 
             res.elementRtti = &childRtti;
             res.getCount = getSize;

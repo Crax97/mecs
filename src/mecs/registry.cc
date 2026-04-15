@@ -20,7 +20,7 @@ MecsRegistry* mecsRegistryCreate(const MecsRegistryCreateInfo* createInfo)
     return reg;
 }
 
-void updateComponentInfo(ComponentInfo& dest, const ComponentInfo& source)
+void updateComponentInfo(MecsComponentInfoInternal& dest, const MecsComponentInfoInternal& source)
 {
     const char* nameCopy = dest.name;
     dest = source;
@@ -36,7 +36,7 @@ mecsRegistryAddRegistration(MecsRegistry* reg,
 
     MecsSize elementCount = reg->components.count();
     for (MecsSize i = 0; i < elementCount; i++) {
-        ComponentInfo& info = reg->components[i];
+        MecsComponentInfoInternal& info = reg->components[i];
 
         if (info.typeID == vtable->typeID) {
             MECS_ASSERT(mecsStrEqual(info.name, vtable->name) && "A component was registered with an already existing typeID, but with a different name: two components sharing the same typeID must have the same name");
@@ -46,7 +46,7 @@ mecsRegistryAddRegistration(MecsRegistry* reg,
         }
     }
 
-    ComponentInfo info = *vtable;
+    MecsComponentInfoInternal info = *vtable;
     info.name = mecsStrDup(reg->memAllocator, vtable->name);
 
     MECS_ASSERT(info.name != vtable->name);
@@ -159,7 +159,7 @@ void* mecsRegistryPrefabGetComponent(MecsRegistry* reg, MecsPrefabID prefabID, M
     MECS_ASSERT(pPrefab != nullptr);
     MecsPrefab& prefab = *pPrefab;
     MecsSize componentCount = prefab.components.count();
-    const ComponentInfo& info = reg->components[componentID];
+    const MecsComponentInfoInternal& info = reg->components[componentID];
     for (MecsSize i = 0; i < componentCount; i++) {
         MecsPrefabComponent& component = prefab.components[i];
         if (component.component == componentID) {
@@ -179,7 +179,7 @@ void mecsRegistryPrefabRemoveComponent(MecsRegistry* reg, MecsPrefabID prefabID,
     MECS_ASSERT(prefab.archetypeBitset.test(componentID) && "Component not found");
 
     MecsSize componentCount = prefab.components.count();
-    const ComponentInfo& info = reg->components[componentID];
+    const MecsComponentInfoInternal& info = reg->components[componentID];
     prefab.archetypeBitset.set(reg->memAllocator, componentID, false);
     for (MecsSize i = 0; i < componentCount; i++) {
         MecsPrefabComponent& component = prefab.components[i];
@@ -218,7 +218,7 @@ MecsComponentID mecsGetComponentIDByName(MecsRegistry* reg, const char* name)
 
     MecsSize numComponents = reg->components.count();
     for (MecsSize i = 0; i < numComponents; i++) {
-        const ComponentInfo& component = reg->components[i];
+        const MecsComponentInfoInternal& component = reg->components[i];
         if (mecsStrEqual(component.name, name)) {
             return static_cast<MecsComponentID>(i);
         }

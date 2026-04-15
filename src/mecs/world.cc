@@ -22,7 +22,6 @@ void freeEntityRow(MecsWorld* const world, const MecsEntity& ent)
         oldArchetype.rowToEntity.pop();
     }
 }
-
 void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID)
 {
     MecsEntity* ent = world->entities.at(entityID);
@@ -31,21 +30,33 @@ void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID)
     ent->status = EntityStatus::eSpawned;
 }
 
-void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID component)
+void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID)
 {
     MecsEntity* ent = world->entities.at(entityID);
-    MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
+    MECS_ASSERT(ent != nullptr && "Invalid index passed to mecsOnComponentAddedToEntity");
+    auto& componentInfo = world->registry->components.at(componentID);
+    if(componentInfo.setup != nullptr) { componentInfo.setup(world, mecsWorldEntityGetComponent(world,entityID, componentID)); }
+
 }
 
-void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID component)
+void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID)
 {
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
+    const MecsRegistry* registry = world->registry;
+    auto& componentInfo = registry->components.at(componentID);
+    if(componentInfo.teardown != nullptr) { componentInfo.teardown(world, mecsWorldEntityGetComponent(world,entityID, componentID)); }
 }
 
 void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID)
 {
     MecsEntity* ent = world->entities.at(entityID);
+
+    const Archetype& arch = world->archetypes.at(ent->archetype);
+    arch.componentIDs.forEach([&](MecsComponentID componentID) {
+        mecsOnComponentRemovedFromEntity(world, entityID, componentID);
+    });
+
     freeEntityRow(world, *ent);
     world->entities.remove(world->memAllocator, entityID);
 }
@@ -288,7 +299,7 @@ MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* dest
         const void* sourceRow = sourceArch.storage.getRowComponent(component, source->archetypeRow);
         void* destRow = destArch.storage.getRowComponent(component, destEntity.archetypeRow);
 
-        ComponentInfo& info = registry->components.at(component);
+        MecsComponentInfoInternal& info = registry->components.at(component);
         if (info.copy) {
             info.copy(sourceRow, destRow, info.size);
         } else {
@@ -312,7 +323,7 @@ void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsCom
     MECS_ASSERT(entity != MECS_INVALID && "Invalid entity ID");
     MecsEntity* ent = world->entities.at(entity);
     MECS_ASSERT(ent->status != EntityStatus::eDestroying);
-    ComponentInfo info = world->registry->components[component];
+    MecsComponentInfoInternal info = world->registry->components[component];
 
     void* outPtr = nullptr;
     if (ent->archetype == MECS_INVALID) {
@@ -363,7 +374,7 @@ bool mecsWorldEntityHasComponent(MecsWorld* world, MecsEntityID entity, MecsComp
     MECS_ASSERT(entity != MECS_INVALID && "Invalid entity ID");
 
     MecsEntity* ent = world->entities.at(entity);
-    ComponentInfo info = world->registry->components[component];
+    MecsComponentInfoInternal& info = world->registry->components[component];
     const Archetype& archetype = world->archetypes[ent->archetype];
     return archetype.storage.hasComponent(component);
 }
@@ -373,7 +384,7 @@ void* mecsWorldEntityGetComponent(MecsWorld* world, MecsEntityID entity, MecsCom
     MECS_ASSERT(entity != MECS_INVALID && "Invalid entity ID");
 
     MecsEntity* ent = world->entities.at(entity);
-    ComponentInfo info = world->registry->components[component];
+    MecsComponentInfoInternal& info = world->registry->components[component];
     const Archetype& archetype = world->archetypes[ent->archetype];
     MECS_ASSERT(archetype.storage.hasComponent(component));
     return archetype.storage.getRowComponent(component, ent->archetypeRow);
@@ -438,12 +449,9 @@ void mecsWorldFlushEvents(MecsWorld* world)
             mecsOnEntityDestroyed(world, event.entityID);
             break;
         }
-        case WorldEventKind::eNewComponent: {
-            mecsOnComponentAddedToEntity(world, event.entityID, event.componentID);
-            break;
-        }
+        case WorldEventKind::eNewComponent: 
         case WorldEventKind::eUpdateComponent: {
-            // For now do nothing
+            mecsOnComponentAddedToEntity(world, event.entityID, event.componentID);
             break;
         }
         case WorldEventKind::eDestroyComponent: {

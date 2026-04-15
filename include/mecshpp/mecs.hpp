@@ -7,8 +7,6 @@
 #include "mecs/world.h"
 #include "mecshpp/mecsrtti.hpp"
 
-#include <compare>
-#include <print>
 #include <sstream>
 #include <tuple>
 #include <type_traits>
@@ -69,6 +67,10 @@ DEFINE_ID(EntityID);
 
 namespace mecs {
 
+namespace detail {
+    struct InvokeHelper;
+}
+
 template <typename T>
 struct With { };
 template <typename T>
@@ -89,7 +91,9 @@ struct RegistrationInfo {
             .init = rtti.init,
             .copy = rtti.copy,
             .move = rtti.move,
-            .destroy = rtti.destroy
+            .destroy = rtti.destroy,
+            .setup = rtti.setup,
+            .teardown = rtti.teardown,
         };
         mComponentId = { mecsRegistryAddRegistration(reg, &componentInfo) };
         return mComponentId;
@@ -436,6 +440,7 @@ public:
 private:
     template <typename... Args>
     friend class Iterator;
+    friend struct detail::InvokeHelper;
     World(MecsWorld* world)
         : mHandle(world)
     {
@@ -529,5 +534,4 @@ namespace utils {
         return mecsUtilIteratorCount(iterator.getHandle());
     }
 }
-
 }

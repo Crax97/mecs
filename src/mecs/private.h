@@ -200,10 +200,16 @@ struct MecsPrefab {
     BitSet archetypeBitset;
 };
 
+struct MecsComponentInfoInternal : public ComponentInfo {
+    MecsComponentInfoInternal() = default;
+    MecsComponentInfoInternal(const ComponentInfo& info) : ComponentInfo(info) { } 
+    
+};
+   
 struct MecsRegistry_t {
     MecsAllocator memAllocator;
 
-    MecsVec<ComponentInfo> components;
+    MecsVec<MecsComponentInfoInternal> components;
     GenArena<MecsPrefab> prefabs;
 };
 struct Archetype {
