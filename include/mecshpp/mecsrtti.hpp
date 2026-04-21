@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mecs/base.h"
+#include "mecshpp/base.hpp"
 #include <array>
 #include <concepts>
 #include <cstdint>
@@ -396,23 +397,23 @@ namespace detail {
     }
 
     template <typename T>
-    concept HasSetup = requires(T* inst, mecs::World& world) {
-        { inst->setup(world) };
+    concept HasSetup = requires(T* inst, mecs::World& world, mecs::EntityID entity) {
+        { inst->setup(world, entity) };
     };
     template <typename T>
-    concept HasTeardown = requires(T* inst, mecs::World& world) {
-        { inst->teardown(world) };
+    concept HasTeardown = requires(T* inst, mecs::World& world, mecs::EntityID entity) {
+        { inst->teardown(world, entity) };
     };
 
     template <typename T>
     static PFNMecsComponentSetup bindSetup()
     {
         if constexpr (HasSetup<T>) {
-            return [](MecsWorld* pWorld, void* ptr, void* uData) {
+            return [](MecsWorld* pWorld, MecsEntityID entity, void* ptr, void* uData) {
                 T* tPtr = reinterpret_cast<T*>(ptr);
                 auto* world = reinterpret_cast<mecs::World*>(uData);
                 MECS_ASSERT(world != nullptr);
-                tPtr->setup(*world);
+                tPtr->setup(*world, mecs::EntityID { entity });
             };
         }
         return nullptr;
@@ -421,11 +422,11 @@ namespace detail {
     static PFNMecsComponentSetup bindTeardown()
     {
         if constexpr (HasTeardown<T>) {
-            return [](MecsWorld* pWorld, void* ptr, void* uData) {
+            return [](MecsWorld* pWorld, MecsEntityID entity, void* ptr, void* uData) {
                 T* tPtr = reinterpret_cast<T*>(ptr);
                 auto* world = reinterpret_cast<mecs::World*>(uData);
                 MECS_ASSERT(world != nullptr);
-                tPtr->teardown(*world);
+                tPtr->teardown(*world, mecs::EntityID { entity });
             };
         }
         return nullptr;

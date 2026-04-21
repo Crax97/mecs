@@ -7,6 +7,7 @@ MECS_EXTERNCPP()
 
 MECS_API MecsWorld* mecsWorldCreate(MecsRegistry* registry, const MecsWorldCreateInfo* mecsWorldCreateInfo);
 MECS_API void mecsWorldFree(MecsWorld* world);
+MECS_API MecsAllocator mecsWorldGetAllocator(MecsWorld* world);
 MECS_API MecsEntityID mecsWorldSpawnEntity(MecsWorld* world, const MecsEntityInfo* entityInfo);
 MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* destinationWorld, MecsEntityID entity);
 MECS_API MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID, const MecsEntityInfo* entityInfo);

@@ -36,7 +36,7 @@ void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid index passed to mecsOnComponentAddedToEntity");
     auto& componentInfo = world->registry->components.at(componentID);
-    if (componentInfo.setup != nullptr) { componentInfo.setup(world, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
+    if (componentInfo.setup != nullptr) { componentInfo.setup(world, entityID, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
 }
 
 void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID, void* updateData)
@@ -45,7 +45,7 @@ void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID enti
     MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
     const MecsRegistry* registry = world->registry;
     auto& componentInfo = registry->components.at(componentID);
-    if (componentInfo.teardown != nullptr) { componentInfo.teardown(world, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
+    if (componentInfo.teardown != nullptr) { componentInfo.teardown(world, entityID, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
 }
 
 void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID, void* updateData)
@@ -197,6 +197,11 @@ void mecsWorldFree(MecsWorld* world)
     world->reusableIterators.destroy(world->memAllocator);
     world->newEvents.destroy(world->memAllocator);
     mecsFree(world->memAllocator, world);
+}
+MECS_API MecsAllocator mecsWorldGetAllocator(MecsWorld* world)
+{
+    MECS_ASSERT(world);
+    return world->memAllocator;
 }
 
 MecsEntityID mecsWorldSpawnEntity(MecsWorld* const world, const MecsEntityInfo* entityInfo)

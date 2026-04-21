@@ -5,65 +5,13 @@
 #include "mecs/mecs.h"
 #include "mecs/registry.h"
 #include "mecs/world.h"
+#include "mecshpp/base.hpp"
 #include "mecshpp/mecsrtti.hpp"
 
-#include <sstream>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
-
-#define MECS_CONSTRUCTORS(Type)            \
-    Type() = default;                      \
-    Type(const Type&) = delete;            \
-    Type& operator=(const Type&) = delete; \
-                                           \
-    Type(Type&& rhs) noexcept              \
-        : mHandle(rhs.mHandle)             \
-    {                                      \
-        rhs.mHandle = nullptr;             \
-    }                                      \
-    Type& operator=(Type&& rhs) noexcept   \
-    {                                      \
-        mHandle = rhs.mHandle;             \
-        rhs.mHandle = nullptr;             \
-        return *this;                      \
-    }
-
-#define DEFINE_ID(Struct)                                                                          \
-    namespace mecs {                                                                               \
-    struct Struct {                                                                                \
-        MecsU32 mID { MECS_INVALID };                                                              \
-        constexpr auto operator<=>(const Struct& other) const = default;                           \
-        constexpr bool operator==(const Struct& other) const = default;                            \
-        constexpr static Struct invalid() { return { MECS_INVALID }; }                             \
-        constexpr bool isValid() const { return mID != MECS_INVALID; }                             \
-        constexpr bool isNull() const { return mID == MECS_INVALID; }                              \
-        constexpr MecsU32 id() const { return mID; }                                               \
-    };                                                                                             \
-    }                                                                                              \
-    namespace std {                                                                                \
-    template <>                                                                                    \
-    struct hash<mecs::Struct> {                                                                    \
-        size_t operator()(const mecs::Struct& mID) const { return std::hash<MecsU32>()(mID.mID); } \
-    };                                                                                             \
-    template <>                                                                                    \
-    struct formatter<mecs::Struct, char> {                                                         \
-        constexpr auto parse(format_parse_context& ctx)                                            \
-        {                                                                                          \
-            return std::formatter<MecsU32>().parse(ctx);                                           \
-        }                                                                                          \
-        auto format(mecs::Struct& strukt, format_context& ctx) const                               \
-        {                                                                                          \
-            std::ostringstream out;                                                                \
-            out << #Struct << " {" << strukt.id() << "}";                                          \
-            return std::ranges::copy(std::move(out).str(), ctx.out()).out;                         \
-        }                                                                                          \
-    };                                                                                             \
-    }
-
-DEFINE_ID(ComponentID);
-DEFINE_ID(PrefabID);
-DEFINE_ID(EntityID);
 
 namespace mecs {
 
@@ -296,6 +244,130 @@ private:
     MecsWorld* mWorld;
     MecsEntityID mEntityID;
 };
+class MECS_API Any {
+public:
+    // NOLINTBEGIN
+    enum Flags_ {
+        Flags_IsPointer = 0x01
+    };
+    // NOLINTEND
+    using DeleteFn = void (*)(void* data);
+    template <typename T>
+    static Any from(T value, MecsAllocator& alloc) noexcept
+    {
+        Any any;
+        if constexpr (std::is_pointer_v<T>) {
+            any.mData = reinterpret_cast<MecsU8*>(value);
+            any.mFlags |= Flags_IsPointer;
+            any.mDelete = []([[maybe_unused]]
+                              void* ptr) { };
+        } else {
+            any.mData = reinterpret_cast<MecsU8*>(alloc.memAlloc(alloc.userData, sizeof(T), alignof(T)));
+            new (any.mData) T { value };
+            any.mDelete = [](void* ptr) {
+                if constexpr (std::is_destructible_v<T>) {
+                    T* tPtr = reinterpret_cast<T*>(ptr);
+                    tPtr->~T();
+                }
+            };
+        }
+        any.mAllocator = alloc;
+        return any;
+    }
+
+    Any(Any&& rhs) noexcept
+    {
+        if (&rhs == this) { return; }
+        if (mData != nullptr) {
+            mDelete(mData);
+        }
+        mData = rhs.mData;
+        mDelete = rhs.mDelete;
+        mFlags = rhs.mFlags;
+        rhs.mData = nullptr;
+        rhs.mDelete = nullptr;
+    }
+
+    Any& operator=(Any&& rhs) noexcept
+    {
+        if (&rhs == this) { return *this; }
+        if (mData != nullptr) {
+            mDelete(mData);
+        }
+        mData = rhs.mData;
+        mDelete = rhs.mDelete;
+        mFlags = rhs.mFlags;
+        rhs.mData = nullptr;
+        rhs.mDelete = nullptr;
+        rhs.mFlags = 0;
+        return *this;
+    }
+
+    ~Any() noexcept
+    {
+        if (mData == nullptr) { return; }
+        mDelete(mData);
+
+        if ((mFlags & Flags_IsPointer) == 0) {
+            mAllocator.memFree(mAllocator.userData, mData);
+        }
+        mData = nullptr;
+    }
+
+    template <typename T>
+    T cast() const
+    {
+        if constexpr(std::is_pointer_v<T>) {
+            return reinterpret_cast<T>(mData);
+        } else {
+            return *reinterpret_cast<T*>(mData);
+        }
+    }
+
+private:
+    Any() noexcept = default;
+    MecsU8* mData { nullptr };
+    DeleteFn mDelete { nullptr };
+    MecsAllocator mAllocator {};
+    int mFlags { 0 };
+};
+
+class MECS_API ServiceRegistry {
+public:
+    template <typename T>
+    void provide(T service, MecsAllocator& alloc)
+    {
+        SimpleID typeID = getID<T>();
+        mServices.insert({ typeID, Any::from<T>(service, alloc) });
+    }
+
+    template <typename T>
+    T get()
+    {
+        SimpleID typeID = getID<T>();
+        MECS_ASSERT(mServices.contains(typeID) && "Service was not provided");
+        return mServices.at(typeID).cast<T>();
+    }
+
+    template <typename T>
+    const T& get() const
+    {
+        SimpleID typeID = getID<T>();
+        MECS_ASSERT(mServices.contains(typeID) && "Service was not provided");
+        return *mServices.at(typeID).cast<T>();
+    }
+
+private:
+    using SimpleID = MecsU64;
+    inline static SimpleID gAllIds = 0;
+    template <typename T>
+    static SimpleID getID()
+    {
+        static SimpleID gThisID = gAllIds++;
+        return gThisID;
+    }
+    std::unordered_map<SimpleID, Any> mServices;
+};
 
 class MECS_API Registry {
 public:
@@ -437,6 +509,19 @@ public:
         return mHandle;
     }
 
+    template <typename T>
+    void registerService(T service)
+    {
+        MecsAllocator alloc = mecsWorldGetAllocator(mHandle);
+        mServiceRegistry.provide(service, alloc);
+    }
+
+    template <typename T>
+    T getService()
+    {
+        return mServiceRegistry.get<T>();
+    }
+
 private:
     template <typename... Args>
     friend class Iterator;
@@ -446,6 +531,7 @@ private:
     {
     }
     MecsWorld* mHandle { nullptr };
+    ServiceRegistry mServiceRegistry;
 };
 
 template <typename... Args>

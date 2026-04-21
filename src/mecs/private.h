@@ -202,10 +202,12 @@ struct MecsPrefab {
 
 struct MecsComponentInfoInternal : public ComponentInfo {
     MecsComponentInfoInternal() = default;
-    MecsComponentInfoInternal(const ComponentInfo& info) : ComponentInfo(info) { } 
-    
+    MecsComponentInfoInternal(const ComponentInfo& info)
+        : ComponentInfo(info)
+    {
+    }
 };
-   
+
 struct MecsRegistry_t {
     MecsAllocator memAllocator;
 

@@ -55,8 +55,8 @@ typedef void (*PFNMecsComponentCopy)(const void* source, void* dest,
 typedef void (*PFNMecsComponentMove)(void* source, void* dest,
     MecsSize byteSize);
 typedef void (*PFNMecsComponentDestroy)(void* mem);
-typedef void (*PFNMecsComponentSetup)(MecsWorld* world, void* mem, void* userData);
-typedef void (*PFNMecsComponentTeardown)(MecsWorld* world, void* mem, void* userData);
+typedef void (*PFNMecsComponentSetup)(MecsWorld* world, MecsEntityID entity, void* mem, void* userData);
+typedef void (*PFNMecsComponentTeardown)(MecsWorld* world, MecsEntityID entity, void* mem, void* userData);
 
 typedef struct MecsAllocator {
     // If null, will use an internal malloc function
