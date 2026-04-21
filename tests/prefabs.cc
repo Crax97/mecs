@@ -36,7 +36,7 @@ TEST_CASE("Prefabs")
     // Now spawn the prefab: this entity will have a Position component and a Velocity, with it's values copied from the prefab
     MecsEntityID ent0 = mecsWorldSpawnEntityPrefab(world, prefab, nullptr);
 
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
 
     {
         MecsIterator* iterator = mecsWorldAcquireIterator(world);

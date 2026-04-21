@@ -22,7 +22,8 @@ void freeEntityRow(MecsWorld* const world, const MecsEntity& ent)
         oldArchetype.rowToEntity.pop();
     }
 }
-void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID)
+
+void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID, void* updateData)
 {
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
@@ -30,38 +31,37 @@ void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID)
     ent->status = EntityStatus::eSpawned;
 }
 
-void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID)
+void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID, void* updateData)
 {
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid index passed to mecsOnComponentAddedToEntity");
     auto& componentInfo = world->registry->components.at(componentID);
-    if(componentInfo.setup != nullptr) { componentInfo.setup(world, mecsWorldEntityGetComponent(world,entityID, componentID)); }
-
+    if (componentInfo.setup != nullptr) { componentInfo.setup(world, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
 }
 
-void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID)
+void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID, void* updateData)
 {
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid index passed to destroyEntity");
     const MecsRegistry* registry = world->registry;
     auto& componentInfo = registry->components.at(componentID);
-    if(componentInfo.teardown != nullptr) { componentInfo.teardown(world, mecsWorldEntityGetComponent(world,entityID, componentID)); }
+    if (componentInfo.teardown != nullptr) { componentInfo.teardown(world, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
 }
 
-void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID)
+void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID, void* updateData)
 {
     MecsEntity* ent = world->entities.at(entityID);
 
     const Archetype& arch = world->archetypes.at(ent->archetype);
     arch.componentIDs.forEach([&](MecsComponentID componentID) {
-        mecsOnComponentRemovedFromEntity(world, entityID, componentID);
+        mecsOnComponentRemovedFromEntity(world, entityID, componentID, updateData);
     });
 
     freeEntityRow(world, *ent);
     world->entities.remove(world->memAllocator, entityID);
 }
 
-void mecsOnNewArchetype(MecsWorld* world, ArchetypeID archetypeID)
+void mecsOnNewArchetype(MecsWorld* world, ArchetypeID archetypeID, void* updateData)
 {
     Archetype& entArchetype = world->archetypes[archetypeID];
     world->acquiredIterators.forEach([&](MecsIterator* iterator) {
@@ -154,7 +154,7 @@ mecsWorldCreate(MecsRegistry* registry, const MecsWorldCreateInfo* const mecsWor
         allocator = registry->memAllocator;
     }
 
-    MecsWorld* world = mecsAlloc<MecsWorld>(allocator);
+    auto* world = mecsAlloc<MecsWorld>(allocator);
 
     world->registry = registry;
     world->memAllocator = allocator;
@@ -176,8 +176,6 @@ void mecsWorldFree(MecsWorld* world)
     if (world == nullptr) {
         return;
     }
-
-    mecsWorldFlushEvents(world);
 
     world->archetypes.forEach([world](Archetype& bucket) {
         bucket.storage.destroy(world->memAllocator);
@@ -436,30 +434,30 @@ void mecsWorldDestroyEntity(MecsWorld* const world, MecsEntityID entityID)
                                                });
 }
 
-void mecsWorldFlushEvents(MecsWorld* world)
+void mecsWorldFlushEvents(MecsWorld* world, void* updateData)
 {
     MECS_ASSERT(world != nullptr && "Cannot pass a null world");
     world->newEvents.forEach([&](const WorldEvent& event) {
         switch (event.kind) {
         case WorldEventKind::eNewEntity: {
-            mecsOnNewEntitySpawned(world, event.entityID);
+            mecsOnNewEntitySpawned(world, event.entityID, updateData);
             break;
         }
         case WorldEventKind::eDestroyEntity: {
-            mecsOnEntityDestroyed(world, event.entityID);
+            mecsOnEntityDestroyed(world, event.entityID, updateData);
             break;
         }
-        case WorldEventKind::eNewComponent: 
+        case WorldEventKind::eNewComponent:
         case WorldEventKind::eUpdateComponent: {
-            mecsOnComponentAddedToEntity(world, event.entityID, event.componentID);
+            mecsOnComponentAddedToEntity(world, event.entityID, event.componentID, updateData);
             break;
         }
         case WorldEventKind::eDestroyComponent: {
-            mecsOnComponentRemovedFromEntity(world, event.entityID, event.componentID);
+            mecsOnComponentRemovedFromEntity(world, event.entityID, event.componentID, updateData);
             break;
         };
         case WorldEventKind::eNewArchetype: {
-            mecsOnNewArchetype(world, event.entityID);
+            mecsOnNewArchetype(world, event.entityID, updateData);
             break;
         }
         }

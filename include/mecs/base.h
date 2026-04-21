@@ -44,7 +44,6 @@ typedef struct MECS_API MecsRegistry_t MecsRegistry;
 typedef struct MECS_API MecsWorld_t MecsWorld;
 typedef struct MECS_API MecsWorldIterator_t MecsIterator;
 
-
 typedef void* (*PFNMecsMalloc)(void* userData, MecsSize size, MecsSize align);
 typedef void* (*PFNMecsRealloc)(void* userData, void* old, MecsSize oldSize, MecsSize align,
     MecsSize newSize);
@@ -52,12 +51,12 @@ typedef void (*PFNMecsFree)(void* userData, void* ptr);
 
 typedef void (*PFNMecsComponentInit)(void* mem);
 typedef void (*PFNMecsComponentCopy)(const void* source, void* dest,
-MecsSize byteSize);
+    MecsSize byteSize);
 typedef void (*PFNMecsComponentMove)(void* source, void* dest,
     MecsSize byteSize);
 typedef void (*PFNMecsComponentDestroy)(void* mem);
-typedef void(*PFNMecsComponentSetup)(MecsWorld* world, void* mem);
-typedef void(*PFNMecsComponentTeardown)(MecsWorld* world, void* mem);
+typedef void (*PFNMecsComponentSetup)(MecsWorld* world, void* mem, void* userData);
+typedef void (*PFNMecsComponentTeardown)(MecsWorld* world, void* mem, void* userData);
 
 typedef struct MecsAllocator {
     // If null, will use an internal malloc function
@@ -109,7 +108,6 @@ typedef struct ComponentInfo {
 
     // Can be null, called when the component is removed from an entity
     PFNMecsComponentTeardown teardown;
-    
 
 } ComponentInfo;
 

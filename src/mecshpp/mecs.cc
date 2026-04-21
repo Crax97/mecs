@@ -138,5 +138,5 @@ void World::destroyEntity(EntityID entity)
 
 void World::flushEvents()
 {
-    mecsWorldFlushEvents(mHandle);
+    mecsWorldFlushEvents(mHandle, this);
 }

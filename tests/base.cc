@@ -36,7 +36,7 @@ TEST_CASE("Basics")
     MECS_COMPONENT(world, ent2, Foo);
     MECS_COMPONENT(world, ent2, Bar);
 
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
 
     {
         MecsIterator* iterator = mecsWorldAcquireIterator(world);
@@ -113,7 +113,7 @@ TEST_CASE("Iterator automatic updates")
     MecsEntityID ent1 = mecsWorldSpawnEntity(world, nullptr);
     MECS_COMPONENT(world, ent1, Foo);
 
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
     MecsIterator* iterator = mecsWorldAcquireIterator(world);
     mecsIterComponent(iterator, Component_Foo, 0);
     mecsIterComponent(iterator, Component_Bar, 1);
@@ -131,7 +131,7 @@ TEST_CASE("Iterator automatic updates")
     }
 
     MECS_COMPONENT(world, ent1, Bar);
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
 
     {
         mecsIteratorBegin(iterator);
@@ -145,7 +145,7 @@ TEST_CASE("Iterator automatic updates")
     }
     MECS_COMPONENT(world, ent1, Baz);
 
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
     {
         mecsIteratorBegin(iterator);
         MecsU32 foos = 0;
@@ -180,7 +180,7 @@ TEST_CASE("Simple loop")
     MecsEntityID ent0 = mecsWorldSpawnEntity(world, {});
     mecsWorldAddComponent(world, ent0, Component_Counter);
 
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
 
     MecsIterator* iterator = mecsWorldAcquireIterator(world);
     mecsIterComponent(iterator, Component_Counter, 0);
@@ -202,7 +202,7 @@ TEST_CASE("Simple loop")
         REQUIRE(cnt->count == 100);
     }
     mecsWorldAddComponent(world, ent0, Component_Bar);
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
     {
         Counter* cnt = static_cast<Counter*>(mecsWorldEntityGetComponent(world, ent0, Component_Counter));
         REQUIRE(cnt->count == 100);
@@ -223,7 +223,7 @@ TEST_CASE("Simple loop")
         REQUIRE(cnt->count == 200);
     }
     mecsWorldRemoveComponent(world, ent0, Component_Bar);
-    mecsWorldFlushEvents(world);
+    mecsWorldFlushEvents(world, nullptr);
 
     for (int i = 0; i < 100; i++) { /// NOLINT
         mecsIteratorBegin(iterator);
@@ -350,7 +350,7 @@ TEST_CASE("Spawning components in a loop")
             }
         }
 
-        mecsWorldFlushEvents(world);
+        mecsWorldFlushEvents(world, nullptr);
     }
 
     REQUIRE(numSpawnedBullets == 100);

@@ -57,7 +57,7 @@
         rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                      \
         rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                \
         rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                              \
-        rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                         \
+        rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                        \
         rttiI.members = { membersContainer.members.begin(), membersContainer.members.end() }; \
         rttiI.methods = { membersContainer.methods.begin(), membersContainer.methods.end() }; \
         return rttiI;                                                                         \
@@ -103,7 +103,7 @@
             rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                                                 \
             rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                                           \
             rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                                                         \
-            rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                                                    \
+            rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                                                   \
             rttiI.variants = { kVariants.begin(), kVariants.end() };                                                         \
             rttiI.get = [](void* ptr) { return static_cast<MecsU32>(*static_cast<MecsCurrentT*>(ptr)); };                    \
             rttiI.set = [](void* ptr, MecsU32 nval) { *static_cast<MecsCurrentT*>(ptr) = static_cast<MecsCurrentT>(nval); }; \
@@ -141,7 +141,7 @@
                 rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                \
                 rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                          \
                 rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                        \
-                rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                   \
+                rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                  \
                 return rttiI;                                                                   \
             }();                                                                                \
             return rtti;                                                                        \
@@ -149,6 +149,7 @@
     }
 
 namespace mecs {
+class World;
 using TypeID = uint64_t;
 
 enum class RttiKind : MecsU8 {
@@ -394,36 +395,42 @@ namespace detail {
         tPtr->~T();
     }
 
-    template<typename T>
-    concept HasSetup = requires(T* inst, MecsWorld* world) {
-        {inst->setup(world)};
+    template <typename T>
+    concept HasSetup = requires(T* inst, mecs::World& world) {
+        { inst->setup(world) };
     };
-    template<typename T>
-    concept HasTeardown = requires(T* inst, MecsWorld* world) {
-        {inst->teardown(world)};
+    template <typename T>
+    concept HasTeardown = requires(T* inst, mecs::World& world) {
+        { inst->teardown(world) };
     };
 
     template <typename T>
-    static PFNMecsComponentSetup bindSetup() {
-        if constexpr(HasSetup<T>) {
-            return [](MecsWorld* pWorld, void* ptr) {
+    static PFNMecsComponentSetup bindSetup()
+    {
+        if constexpr (HasSetup<T>) {
+            return [](MecsWorld* pWorld, void* ptr, void* uData) {
                 T* tPtr = reinterpret_cast<T*>(ptr);
-                tPtr->setup(pWorld);
+                auto* world = reinterpret_cast<mecs::World*>(uData);
+                MECS_ASSERT(world != nullptr);
+                tPtr->setup(*world);
             };
         }
         return nullptr;
     }
     template <typename T>
-    static PFNMecsComponentSetup bindTeardown() {
-        if constexpr(HasTeardown<T>) {
-            return [](MecsWorld* pWorld, void* ptr) {
+    static PFNMecsComponentSetup bindTeardown()
+    {
+        if constexpr (HasTeardown<T>) {
+            return [](MecsWorld* pWorld, void* ptr, void* uData) {
                 T* tPtr = reinterpret_cast<T*>(ptr);
-                tPtr->teardown(pWorld);
+                auto* world = reinterpret_cast<mecs::World*>(uData);
+                MECS_ASSERT(world != nullptr);
+                tPtr->teardown(*world);
             };
         }
         return nullptr;
     }
-    
+
     constexpr uint64_t fnv1a(const char* str, size_t n, uint64_t basis = 14695981039346656037U) // NOLINT
     {
         return n == 0 ? basis : fnv1a(str + 1, n - 1, (basis ^ str[0]) * 1099511628211U); // NOLINT

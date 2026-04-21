@@ -17,7 +17,7 @@ MECS_API MecsComponentID mecsWorldEntityGetComponentByIndex(MecsWorld* world, Me
 MECS_API void* mecsWorldAddComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID component);
 MECS_API void mecsWorldRemoveComponent(MecsWorld* world, MecsEntityID entity, MecsComponentID componentInstance);
 MECS_API void mecsWorldDestroyEntity(MecsWorld* world, MecsEntityID entityID);
-MECS_API void mecsWorldFlushEvents(MecsWorld* world);
+MECS_API void mecsWorldFlushEvents(MecsWorld* world, void* updateData);
 MECS_API MecsIterator* mecsWorldAcquireIterator(MecsWorld* world);
 MECS_API void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator);
 

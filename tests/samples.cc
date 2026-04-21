@@ -8,12 +8,32 @@
 
 /// NOLINTBEGIN
 
+struct Position {
+    int x, y, z;
+};
+
+struct UserData {
+    float totalTime;
+};
+
+void setupPosition(MecsWorld* world, void* pData, void* userData)
+{
+    Position* p = (Position*)(pData);
+    UserData* ud = (UserData*)(userData);
+    p->x = ud->totalTime * 10.0F;
+    p->y = ud->totalTime * -20.0F;
+    p->z = 0.0F;
+    printf("Position set up to x=%f y=%f z=%f\n", p->x, p->y, p->z);
+}
+void teardownPosition(MecsWorld* world, void* pData, void* userData)
+{
+    Position* p = (Position*)(pData);
+    UserData* ud = (UserData*)(userData);
+    printf("Teardown position\n");
+}
+
 TEST_CASE("C sample")
 {
-    struct Position {
-        int x, y, z;
-    };
-
     struct Velocity {
         int x, y, z;
     };
@@ -47,6 +67,8 @@ TEST_CASE("C sample")
     static MecsComponentID Component_Position = MECS_INVALID;
     {
         ComponentInfo info = { .name = "Position", .size = sizeof(Position), .align = alignof(Position) };
+        info.setup = setupPosition;
+        info.teardown = teardownPosition;
         Component_Position = mecsRegistryAddRegistration(registry, &info);
     }
 
@@ -97,7 +119,11 @@ TEST_CASE("C sample")
     }
 
     // Always call this at the end of an update cycle
-    mecsWorldFlushEvents(world);
+    // the second argument is an optional pointer that is passed to a component's
+    // setup/teardown() functions (when present)
+    UserData ud;
+    ud.totalTime = 1.0F;
+    mecsWorldFlushEvents(world, &ud);
 
     // Acquire some iterators, which are used to iterate over tuples of components
     // The first step is to acquire an iterator
@@ -179,8 +205,9 @@ TEST_CASE("C sample")
             }
         }
 
+        ud.totalTime += 1.0F;
         // Remember to flush at the end of the update cycle
-        mecsWorldFlushEvents(world);
+        mecsWorldFlushEvents(world, &ud);
     }
     // Two enemies should have been destroyed
     REQUIRE(mecsUtilIteratorCount(enemyIterator) == 1);
@@ -203,10 +230,6 @@ TEST_CASE("C sample")
     mecsWorldFree(world);
     mecsRegistryFree(registry);
 }
-
-struct Position {
-    int x, y, z;
-};
 
 struct Velocity {
     int x, y, z;
