@@ -16,7 +16,7 @@ struct UserData {
     float totalTime;
 };
 
-void setupPosition(MecsWorld* world, void* pData, void* userData)
+void setupPosition(MecsWorld* world, MecsEntityID entity, void* pData, void* userData)
 {
     Position* p = (Position*)(pData);
     UserData* ud = (UserData*)(userData);
@@ -25,7 +25,7 @@ void setupPosition(MecsWorld* world, void* pData, void* userData)
     p->z = 0.0F;
     printf("Position set up to x=%f y=%f z=%f\n", p->x, p->y, p->z);
 }
-void teardownPosition(MecsWorld* world, void* pData, void* userData)
+void teardownPosition(MecsWorld* world, MecsEntityID entity, void* pData, void* userData)
 {
     Position* p = (Position*)(pData);
     UserData* ud = (UserData*)(userData);

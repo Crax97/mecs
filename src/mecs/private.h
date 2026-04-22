@@ -234,7 +234,6 @@ enum class WorldEventKind : MecsU8 {
     eNewComponent, // entityID componentID
     eUpdateComponent, // entityID componentID
     eDestroyComponent, // entityID componentID
-    eNewArchetype, // entityID -> archetypeID
 };
 
 struct WorldEvent {
