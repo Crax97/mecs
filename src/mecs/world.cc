@@ -439,6 +439,46 @@ void mecsWorldDestroyEntity(MecsWorld* const world, MecsEntityID entityID)
                                                });
 }
 
+void mecsWorldEntityChanged(MecsWorld* world, MecsEntityID entityID)
+{
+    MECS_ASSERT(world != nullptr && "Cannot pass a null world");
+    MecsEntity* ent = world->entities.at(entityID);
+    MECS_ASSERT(ent != nullptr && "Invalid entity ID");
+    if (ent->status == EntityStatus::eDestroying) { return; }
+    world->newEvents.push(world->memAllocator, WorldEvent {
+                                               .kind = WorldEventKind::eRecreateEntity,
+                                               .entityID = entityID
+                                           });
+}
+
+void mecsOnEntityRecreate(MecsWorld* world, MecsEntityID entityID, void* updateData)
+{
+
+    MECS_ASSERT(world != nullptr && "Cannot pass a null world");
+    MecsEntity* ent = world->entities.at(entityID);
+    MECS_ASSERT(ent != nullptr && "Invalid entity ID");
+    if (ent->status == EntityStatus::eDestroying) { return; }
+
+    MecsRegistry* registry = world->registry;
+    MECS_ASSERT(registry);
+
+    const Archetype& arch = world->archetypes[ent->archetype];
+    arch.componentIDs.forEach([&](MecsComponentID component) {
+        void* pComponent = arch.storage.getRowComponent(component, ent->archetypeRow);
+        const ComponentInfo& info = registry->components[component];
+        if (info.teardown != nullptr) {
+            info.teardown(world, entityID, pComponent, updateData);
+        }
+    });
+
+    arch.componentIDs.forEach([&](MecsComponentID component) {
+        void* pComponent = arch.storage.getRowComponent(component, ent->archetypeRow);
+        const ComponentInfo& info = registry->components[component];
+        if (info.setup != nullptr) {
+            info.setup(world, entityID, pComponent, updateData);
+        }
+    });
+}
 void mecsWorldFlushEvents(MecsWorld* world, void* updateData)
 {
     MECS_ASSERT(world != nullptr && "Cannot pass a null world");
@@ -450,6 +490,10 @@ void mecsWorldFlushEvents(MecsWorld* world, void* updateData)
         }
         case WorldEventKind::eDestroyEntity: {
             mecsOnEntityDestroyed(world, event.entityID, updateData);
+            break;
+        }
+        case WorldEventKind::eRecreateEntity: {
+            mecsOnEntityRecreate(world, event.entityID, updateData);
             break;
         }
         case WorldEventKind::eNewComponent:

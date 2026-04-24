@@ -123,6 +123,10 @@ void World::entityRemoveComponent(EntityID entity, ComponentID component)
 {
     mecsWorldRemoveComponent(mHandle, entity.id(), component.id());
 }
+void World::entityChanged(EntityID entity)
+{
+    mecsWorldEntityChanged(mHandle, entity.id());
+}
 MecsSize World::entityGetNumComponents(EntityID entity) const
 {
     return mecsWorldEntityGetNumComponents(mHandle, entity.id());

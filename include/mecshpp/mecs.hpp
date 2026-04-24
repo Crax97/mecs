@@ -464,6 +464,7 @@ public:
     [[nodiscard]]
     void* entityGetComponent(EntityID entity, ComponentID component) const;
     void entityRemoveComponent(EntityID entity, ComponentID component);
+    void entityChanged(EntityID entity);
     [[nodiscard]]
     MecsSize entityGetNumComponents(EntityID entity) const;
     [[nodiscard]]

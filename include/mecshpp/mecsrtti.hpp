@@ -549,6 +549,7 @@ constexpr void constexprFor(Tuple&& tuple, F&& func)
 }
 }
 
+MECS_RTTI_FIELD(bool);
 MECS_RTTI_FIELD(int);
 MECS_RTTI_FIELD(unsigned int);
 MECS_RTTI_FIELD(long);

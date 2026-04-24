@@ -231,6 +231,7 @@ struct MecsEntity {
 enum class WorldEventKind : MecsU8 {
     eNewEntity, // entityID
     eDestroyEntity, // entityID
+    eRecreateEntity, // entityID
     eNewComponent, // entityID componentID
     eUpdateComponent, // entityID componentID
     eDestroyComponent, // entityID componentID
