@@ -98,11 +98,13 @@ void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID enti
         return; // The entity does not have the component;
     }
 
+    const Archetype& oldArchetype = world->archetypes[oldArchetypeID];
+    const Archetype& newArchetype = world->archetypes[newArchetypeID];
+    mecsRemoveEntityFromUnmatchingSystems(world, updateData, entityID, oldArchetype.storage.bitset(), newArchetype.storage.bitset());
+
+
     moveEntityToNewArchetype(world, entityID, newArchetypeID);
 
-    const Archetype& oldArchetype = world->archetypes[oldArchetypeID];
-    const Archetype& newArchetype = world->archetypes[ent->archetype];
-    mecsRemoveEntityFromUnmatchingSystems(world, updateData, entityID, oldArchetype.storage.bitset(), newArchetype.storage.bitset());
 }
 
 void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID, void* updateData)
@@ -318,7 +320,7 @@ MecsEntityID mecsWorldSpawnEntityPrefab(MecsWorld* world, MecsPrefabID prefabID,
     } else {
         BitSet bitset;
         const ArchetypeID defaultArchetype = findArchetype(world, bitset);
-        bitset.clear();
+        bitset.destroy(world->memAllocator);
 
         Archetype& archetype = world->archetypes[defaultArchetype];
         const MecsSize row = archetype.storage.allocateRow(world->memAllocator);
@@ -373,18 +375,26 @@ MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* dest
         destEntity.archetype = destArchetypeID;
         destEntity.archetypeRow = destEntityRow;
 
-        const Archetype& sourceArch = world->archetypes.at(source->archetype);
-        Archetype& destArch = destinationWorld->archetypes.at(destArchetypeID);
-        destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
-                                                                  .kind = WorldEventKind::eNewEntity,
-                                                                  .entityID = newEntityID,
-                                                              });
+        MecsVec<MecsComponentID> componentIDS;
+        {
+            const Archetype& sourceArch = world->archetypes.at(source->archetype);
+            destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
+                                                                      .kind = WorldEventKind::eNewEntity,
+                                                                      .entityID = newEntityID,
+                                                                  });
+            componentIDS.resize(world->memAllocator, sourceArch.componentIDs.count());
+            for (MecsSize i = 0; i < sourceArch.componentIDs.count(); i++) {
+                componentIDS[i] = sourceArch.componentIDs[i];
+            }
+        }
         BitSet tempBitSet;
         ArchetypeID oldArchetypeID = findArchetype(world, tempBitSet);
-        sourceArch.componentIDs.forEach([&](MecsComponentID component) {
+        componentIDS.forEach([&](MecsComponentID component) {
+            const Archetype& sourceArch = world->archetypes.at(source->archetype);
+            const Archetype& destArch = destinationWorld->archetypes.at(destArchetypeID);
+
             const void* sourceRow = sourceArch.storage.getRowComponent(component, source->archetypeRow);
             void* destRow = destArch.storage.getRowComponent(component, destEntity.archetypeRow);
-
 
             MecsComponentInfoInternal& info = registry->components.at(component);
             if (info.copy) {
@@ -393,6 +403,7 @@ MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* dest
                 mecsMemCpy(static_cast<const char*>(sourceRow), info.size, static_cast<char*>(destRow), info.size);
             }
             tempBitSet.set(world->memAllocator, component, true);
+
             ArchetypeID newArchetypeID = findArchetype(world, tempBitSet);
             destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
                                                                       .kind = WorldEventKind::eNewComponent,
@@ -404,6 +415,7 @@ MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* dest
             oldArchetypeID = newArchetypeID;
         });
         tempBitSet.destroy(world->memAllocator);
+        componentIDS.destroy(world->memAllocator);
 
         *destinationWorld->entities.at(newEntityID) = destEntity;
 
@@ -655,6 +667,7 @@ MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo*
 
     for (MecsU32 i = 0; i < systemInfo->numComponents; i++) {
         MecsComponentID component = systemInfo->pComponents[i];
+        if (component == MECS_INVALID) { continue; }
         MecsIteratorFilter filter = systemInfo->pFilters[i];
         mecsIterComponentFilter(system.systemIterator, component, filter, i);
 

@@ -8,13 +8,27 @@
 
 /// NOLINTBEGIN
 
-struct Position {
-    int x, y, z;
-};
 
 struct UserData {
     float totalTime;
 };
+
+struct Position {
+    int x, y, z;
+};
+struct Velocity {
+    int x, y, z;
+};
+
+struct Name {
+    const char* name;
+};
+struct Player { };
+struct Enemy { };
+struct Mesh {
+    int meshName;
+};
+
 
 void setupPosition(MecsWorld* world, MecsEntityID entity, void* pData, void* userData)
 {
@@ -34,19 +48,6 @@ void teardownPosition(MecsWorld* world, MecsEntityID entity, void* pData, void* 
 
 TEST_CASE("C sample")
 {
-    struct Velocity {
-        int x, y, z;
-    };
-
-    struct Name {
-        const char* name;
-    };
-    struct Player { };
-    struct Enemy { };
-    struct Mesh {
-        int meshName;
-    };
-
     MecsRegistryCreateInfo regInfo {};
     regInfo.memAllocator = kDebugAllocator;
 
@@ -231,24 +232,16 @@ TEST_CASE("C sample")
     mecsRegistryFree(registry);
 }
 
-struct Velocity {
-    int x, y, z;
-};
-
-struct Name {
+struct NamedMesh {
     std::string name;
 };
-struct Player { };
-struct Enemy { };
-struct Mesh {
-    std::string meshName;
-};
+
 MECS_RTTI_SIMPLE(Position);
 MECS_RTTI_SIMPLE(Velocity);
 MECS_RTTI_SIMPLE(Name);
 MECS_RTTI_SIMPLE(Player);
 MECS_RTTI_SIMPLE(Enemy);
-MECS_RTTI_SIMPLE(Mesh);
+MECS_RTTI_SIMPLE(NamedMesh);
 
 TEST_CASE("C++ sample")
 {
@@ -261,7 +254,7 @@ TEST_CASE("C++ sample")
     registry.addRegistration<Position>();
     registry.addRegistration<Velocity>();
     registry.addRegistration<Name>();
-    registry.addRegistration<Mesh>();
+    registry.addRegistration<NamedMesh>();
 
     // Player moves 3 pixels to right each frame
     mecs::PrefabID playerCharacterPrefab = registry.createPrefab()
@@ -277,7 +270,7 @@ TEST_CASE("C++ sample")
                                               .withComponent<Name>("Enemy");
 
     mecs::PrefabID meshPrefab = registry.createPrefab()
-                                    .withComponent<Mesh>()
+                                    .withComponent<NamedMesh>()
                                     .withComponent<Position>();
 
     mecs::World world(registry);
@@ -295,7 +288,7 @@ TEST_CASE("C++ sample")
 
     for (int i = 0; i < 100; i++) {
         world.spawnEntityPrefab(meshPrefab)
-            .setComponent<Mesh>("Mesh" + std::to_string(i));
+            .setComponent<NamedMesh>("Mesh" + std::to_string(i));
     }
 
     world.flushEvents();
@@ -305,7 +298,7 @@ TEST_CASE("C++ sample")
 
     mecs::Iterator allPositionVelocities = world.acquireIterator<Position&, const Velocity&>();
     mecs::Iterator playerThatAreEnemies = world.acquireIterator<const Enemy&, const Player&, const Position&, const Velocity&>();
-    mecs::Iterator meshes = world.acquireIterator<const Mesh&, const Position&>();
+    mecs::Iterator meshes = world.acquireIterator<const NamedMesh&, const Position&>();
     mecs::Iterator allEntities = world.acquireIterator();
 
     // One player and three enemies were just spawned
@@ -324,7 +317,7 @@ TEST_CASE("C++ sample")
 
         playerIterator.begin();
         while (playerIterator.advance()) {
-            auto [player, playerPos, playerVel] = playerIterator.get();
+            auto [playerCompo, playerPos, playerVel] = playerIterator.get();
             playerPos.x += playerVel.x;
             playerPos.y += playerVel.y;
             playerPos.z += playerVel.z;

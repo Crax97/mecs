@@ -183,7 +183,7 @@ namespace detail {
     template<typename... Args>
     constexpr MecsSize countComponents()
     {
-        return ((ParameterInfo<Args>::kIsComponent ? 1U : 0U) +...);
+        return sizeof...(Args);
     }
     template<MecsSize S>
     void addComponentIDs(std::array<MecsComponentID, S>&, size_t)
@@ -197,18 +197,19 @@ namespace detail {
 
         if constexpr (ParameterInfo<A>::kIsComponent) {
             outArray[idx] = RegistrationInfo<typename ParameterInfo<A>::RawType>::getComponentID().id();
-            addComponentIDs<S, Rest...>(outArray, idx + 1);
         } else {
-            addComponentIDs<S, Rest...>(outArray, idx);
+            outArray[idx] = MECS_INVALID;
         }
+        addComponentIDs<S, Rest...>(outArray, idx + 1);
     }
 
     template<MecsSize S, typename A>
     void addComponentIDs(std::array<MecsComponentID, S>& outArray, size_t idx)
     {
-
         if constexpr (ParameterInfo<A>::kIsComponent) {
             outArray[idx] = RegistrationInfo<typename ParameterInfo<A>::RawType>::getComponentID();
+        } else {
+            outArray[idx] = MECS_INVALID;
         }
     }
 
@@ -224,10 +225,10 @@ namespace detail {
 
         if constexpr (ParameterInfo<A>::kIsComponent) {
             outArray[idx] = ParameterInfo<A>::kFilterType;
-            addFilter<S, Rest...>(outArray, idx + 1);
         } else {
-            addFilter<S, Rest...>(outArray, idx);
+            outArray[idx] = MecsIteratorFilter::Access;
         }
+        addFilter<S, Rest...>(outArray, idx + 1);
     }
 
     template<MecsSize S, typename A>
@@ -842,7 +843,7 @@ public:
 
 private:
     friend class World;
-    friend class detail::IteratorHelper;
+    friend struct detail::IteratorHelper;
 
     Iterator(World& world)
     {
