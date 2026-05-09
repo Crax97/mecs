@@ -379,6 +379,448 @@ TEST_CASE("Spawning components in a loop")
     mecsRegistryFree(registry);
 }
 
+struct SystemAB {
+    int numEntities;
+};
+
+struct SystemACD {
+    int numEntities;
+};
+
+void onEntityAdded_SystemAB(void* data, void* update, MecsEntityID entity)
+{
+    SystemAB* system = (SystemAB*)data;
+    system->numEntities++;
+}
+
+void systemRun_SystemAB(void* data, void* update, MecsIterator* iterator)
+{
+
+}
+
+
+void onEntityRemoved_SystemAB(void* data, void* update, MecsEntityID entity)
+{
+    SystemAB* system = (SystemAB*)data;
+    system->numEntities--;
+}
+void onEntityAdded_SystemACD(void* data, void* update, MecsEntityID entity)
+{
+    SystemACD* system = (SystemACD*)data;
+    system->numEntities++;
+}
+
+void systemRun_SystemACD(void* data, void* update, MecsIterator* iterator)
+{
+}
+
+void onEntityRemoved_SystemACD(void* data, void* update, MecsEntityID entity)
+
+{
+    SystemACD* system = (SystemACD*)data;
+    system->numEntities--;
+}
+
+struct ComponentA {
+};
+struct ComponentB {
+};
+struct ComponentC {
+};
+struct ComponentD {
+};
+
+struct Transform{};
+struct Mesh {};
+
+struct DirectionalLight{};
+struct PointLight{};
+struct SpotLight{};
+
+MECS_RTTI_SIMPLE(ComponentA);
+MECS_RTTI_SIMPLE(ComponentB);
+MECS_RTTI_SIMPLE(ComponentC);
+MECS_RTTI_SIMPLE(ComponentD);
+
+MECS_RTTI_SIMPLE(Transform);
+MECS_RTTI_SIMPLE(Mesh);
+
+MECS_RTTI_SIMPLE(DirectionalLight);
+MECS_RTTI_SIMPLE(PointLight);
+MECS_RTTI_SIMPLE(SpotLight);
+
+TEST_CASE("Systems")
+{
+    SECTION("C system API") {
+        MecsRegistryCreateInfo regInfo {};
+        regInfo.memAllocator = kDebugAllocator;
+        MecsRegistry* registry = mecsRegistryCreate(&regInfo);
+        MECS_REGISTER_COMPONENT(registry, ComponentA);
+        MECS_REGISTER_COMPONENT(registry, ComponentB);
+        MECS_REGISTER_COMPONENT(registry, ComponentC);
+        MECS_REGISTER_COMPONENT(registry, ComponentD);
+
+        MecsWorld* world = mecsWorldCreate(registry, nullptr);
+
+        SystemAB abSystem;
+        abSystem.numEntities = 0;
+        SystemACD acdSystem;
+        acdSystem.numEntities = 0;
+
+        {
+            MecsComponentID components[] = {Component_ComponentA, Component_ComponentB};
+            MecsIteratorFilter filters[] = {MecsIteratorFilter::Access, MecsIteratorFilter::Access};
+            MecsDefineSystemInfo systemInfo {};
+            systemInfo.numComponents = 2;
+            systemInfo.pComponents = components;
+            systemInfo.pFilters = filters;
+            systemInfo.onEntityAdded = onEntityAdded_SystemAB;
+            systemInfo.systemRun = systemRun_SystemAB;
+            systemInfo.onEntityRemoved = onEntityRemoved_SystemAB;
+            systemInfo.systemData = &abSystem;
+            MecsSystemID abSystemID = mecsWorldDefineSystem(world, &systemInfo);
+        }
+
+        {
+            MecsComponentID components[] = {Component_ComponentA, Component_ComponentC, Component_ComponentD};
+            MecsIteratorFilter filters[] = {MecsIteratorFilter::Access, MecsIteratorFilter::Access, MecsIteratorFilter::Access};
+            MecsDefineSystemInfo systemInfo {};
+            systemInfo.numComponents = 3;
+            systemInfo.pComponents = components;
+            systemInfo.pFilters = filters;
+            systemInfo.onEntityAdded = onEntityAdded_SystemACD;
+            systemInfo.systemRun = systemRun_SystemACD;
+            systemInfo.onEntityRemoved = onEntityRemoved_SystemACD;
+            systemInfo.systemData = &acdSystem;
+            MecsSystemID abSystemID = mecsWorldDefineSystem(world, &systemInfo);
+        }
+
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 0);
+
+        MecsEntityID ent = mecsWorldSpawnEntity(world, {});
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 0);
+
+        mecsWorldAddComponent(world, ent, Component_ComponentA);
+        mecsWorldAddComponent(world, ent, Component_ComponentC);
+        mecsWorldFlushEvents(world, nullptr);
+
+        // ABSystem operates on entities that have a ComponentA and a ComponentB
+        // ent only has a ComponentA, so it cannot iterate on it
+        REQUIRE(abSystem.numEntities == 0);
+
+        mecsWorldAddComponent(world, ent, Component_ComponentB);
+        mecsWorldFlushEvents(world, nullptr);
+        // Now that we added a ComponentB to ent abSystem should be notified of it
+        REQUIRE(abSystem.numEntities == 1);
+        // ACD's entities should be at 0
+        REQUIRE(acdSystem.numEntities == 0);
+
+        MecsEntityID ent2 = mecsWorldDuplicateEntity(world, world, ent);
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 2);
+
+
+        MecsEntityID ent3 = mecsWorldSpawnEntity(world, {});
+        mecsWorldAddComponent(world, ent3, Component_ComponentA);
+        mecsWorldAddComponent(world, ent3, Component_ComponentC);
+        mecsWorldAddComponent(world, ent3, Component_ComponentD);
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 2);
+        REQUIRE(acdSystem.numEntities == 1);
+
+        mecsWorldAddComponent(world, ent3, Component_ComponentB);
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 3);
+        REQUIRE(acdSystem.numEntities == 1);
+
+        mecsWorldRemoveComponent(world, ent, Component_ComponentA);
+        mecsWorldFlushEvents(world, nullptr);
+        // Once we remove one of the components that SystemAB matches
+        // the system is notified of that
+        REQUIRE(abSystem.numEntities == 2);
+        REQUIRE(acdSystem.numEntities == 1);
+
+        mecsWorldRemoveComponent(world, ent, Component_ComponentB);
+        mecsWorldFlushEvents(world, nullptr);
+        // Once an entity is removed, the system shouldn't receive further remove events for that entity
+        REQUIRE(abSystem.numEntities == 2);
+        REQUIRE(acdSystem.numEntities == 1);
+
+        mecsWorldDestroyEntity(world, ent2);
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 1);
+        REQUIRE(acdSystem.numEntities == 1);
+
+        mecsWorldDestroyEntity(world, ent3);
+        mecsWorldFlushEvents(world, nullptr);
+        REQUIRE(abSystem.numEntities == 0);
+        REQUIRE(acdSystem.numEntities == 0);
+
+        mecsWorldFree(world);
+        mecsRegistryFree(registry);
+    }
+
+    SECTION("C++ system API")
+    {
+        MecsRegistryCreateInfo regInfo {};
+        regInfo.memAllocator = kDebugAllocator;
+        mecs::Registry registry(regInfo);
+
+        registry.addRegistration<ComponentA>();
+        registry.addRegistration<ComponentB>();
+        registry.addRegistration<ComponentC>();
+        registry.addRegistration<ComponentD>();
+
+        registry.addRegistration<Transform>();
+        registry.addRegistration<Mesh>();
+        registry.addRegistration<DirectionalLight>();
+        registry.addRegistration<SpotLight>();
+        registry.addRegistration<PointLight>();
+
+        class SystemAB_Cpp {
+        public:
+            int counter {0};
+
+            void onEntityAdded(mecs::World& world, mecs::EntityID entity)
+            {
+                counter++;
+            }
+
+            void systemRun(mecs::World& world, mecs::Iterator<ComponentA&, ComponentB&>& iterator)
+            {
+
+            }
+
+            void onEntityRemoved(mecs::World& world, mecs::EntityID entity)
+            {
+                counter--;
+            }
+        } abSystem {};
+
+
+        class RenderingSystem {
+        public:
+            int numMeshes {0};
+            int numDirectionalLights {0};
+            int numPointLights {0};
+            int numSpotLights {0};
+
+            void onMeshAdded(mecs::World& world, mecs::EntityID entity)
+            {
+                numMeshes++;
+            }
+
+            void updateMeshes(mecs::World& world, mecs::Iterator<Transform&, Mesh&>& iterator)
+            {
+
+            }
+
+            void onMeshRemoved(mecs::World& world, mecs::EntityID entity)
+            {
+                numMeshes--;
+            }
+
+            void onDirectionalLightAdded(mecs::World& world, mecs::EntityID entity)
+            {
+                numDirectionalLights++;
+            }
+
+            void updateDirectionalLights(mecs::World& world, mecs::Iterator<Transform&, DirectionalLight&>& iterator)
+            {
+
+            }
+
+            void onDirectionalLightRemoved(mecs::World& world, mecs::EntityID entity)
+            {
+                numDirectionalLights--;
+            }
+
+            void onPointLightLightAdded(mecs::World& world, mecs::EntityID entity)
+            {
+                numPointLights++;
+            }
+
+            void updatePointLightLights(mecs::World& world, mecs::Iterator<Transform&, PointLight&>& iterator)
+            {
+
+            }
+
+            void onPointLightRemoved(mecs::World& world, mecs::EntityID entity)
+            {
+                numPointLights--;
+            }
+
+
+            void onSpotLightAdded(mecs::World& world, mecs::EntityID entity)
+            {
+                numSpotLights++;
+            }
+
+            void updateSpotLightLights(mecs::World& world, mecs::Iterator<Transform&, SpotLight&>& iterator)
+            {
+
+            }
+
+            void onSpotLightRemoved(mecs::World& world, mecs::EntityID entity)
+            {
+                numSpotLights--;
+            }
+
+        } renderingSystem {};
+
+        mecs::World world(registry);
+
+        /** Simple API: binding a system that will interact with only one component set
+        *   At least the systemRun method is required:
+        *    void systemRun(mecs::World& world, mecs::Iterator<Components...>& iterator);
+        *   The following methods are optional
+        *    void onEntityAdded(mecs::World& world, mecs::EntityID entity);
+        *    void onEntityRemoved(mecs::World& world, mecs::EntityID entity);
+        **/
+        world.addSystem<SystemAB_Cpp>(&abSystem);
+
+        /*  Explicit API: useful for having one system interact with multiple component sets
+        *   In this case we have the same RenderingSystem that has to interact with multiple
+        *   different rendering-related components (e.g to add them to a scene)
+        */
+        world.addSystem<RenderingSystem,
+                        &RenderingSystem::updateMeshes,
+                        &RenderingSystem::onMeshAdded,
+                        &RenderingSystem::onMeshRemoved>(&renderingSystem);
+        world.addSystem<RenderingSystem,
+                        &RenderingSystem::updateDirectionalLights,
+                        &RenderingSystem::onDirectionalLightAdded,
+                        &RenderingSystem::onDirectionalLightRemoved>(&renderingSystem);
+        world.addSystem<RenderingSystem,
+                        &RenderingSystem::updatePointLightLights,
+                        &RenderingSystem::onPointLightLightAdded,
+                        &RenderingSystem::onPointLightRemoved>(&renderingSystem);
+        world.addSystem<RenderingSystem,
+                        &RenderingSystem::updateSpotLightLights,
+                        &RenderingSystem::onSpotLightAdded,
+                        &RenderingSystem::onSpotLightRemoved>(&renderingSystem);
+
+        mecs::EntityID entityA = world.spawnEntity();
+        world.flushEvents();
+
+        REQUIRE(abSystem.counter == 0);
+
+        world.entityAddComponent<ComponentA>(entityA);
+        world.flushEvents();
+        REQUIRE(abSystem.counter == 0);
+        world.entityAddComponent<ComponentB>(entityA);
+        world.flushEvents();
+        REQUIRE(abSystem.counter == 1);
+        world.entityAddComponent<ComponentC>(entityA);
+        world.flushEvents();
+        REQUIRE(abSystem.counter == 1);
+
+        std::vector<mecs::EntityID> meshes;
+        std::vector<mecs::EntityID> onlyTransforms;
+        std::vector<mecs::EntityID> spotLights;
+        std::vector<mecs::EntityID> pointLights;
+        for (int i = 0; i < 10; i ++) {
+            meshes.push_back(world.spawnEntity()
+                .withComponent<Transform>()
+                .withComponent<Mesh>());
+        }
+        for (int i = 0; i < 5; i ++) {
+            onlyTransforms.push_back(world.spawnEntity()
+                .withComponent<Transform>());
+        }
+
+
+        world.flushEvents();
+
+        REQUIRE(renderingSystem.numMeshes == 10);
+
+        world.spawnEntity()
+            .withComponent<Transform>()
+            .withComponent<DirectionalLight>();
+        world.flushEvents();
+
+        for (int i = 0; i < 3; i ++) {
+            spotLights.push_back(world.spawnEntity()
+                .withComponent<SpotLight>()
+                .withComponent<Transform>());
+        }
+        world.flushEvents();
+
+        for (int i = 0; i < 6; i ++) {
+            pointLights.push_back(world.spawnEntity()
+                .withComponent<PointLight>()
+                .withComponent<Transform>());
+            world.flushEvents();
+        }
+        world.flushEvents();
+
+        REQUIRE(renderingSystem.numMeshes == 10);
+        REQUIRE(renderingSystem.numDirectionalLights == 1);
+        REQUIRE(renderingSystem.numSpotLights == 3);
+        REQUIRE(renderingSystem.numPointLights == 6);
+        for (int i = 0; i < 5; i ++) {
+            onlyTransforms.push_back(world.spawnEntity()
+                .withComponent<Transform>());
+        }
+        world.flushEvents();
+        REQUIRE(renderingSystem.numMeshes == 10);
+        REQUIRE(renderingSystem.numDirectionalLights == 1);
+        REQUIRE(renderingSystem.numSpotLights == 3);
+        REQUIRE(renderingSystem.numPointLights == 6);
+
+        for (mecs::EntityID transform : onlyTransforms) {
+            world.destroyEntity(transform);
+        }
+        world.flushEvents();
+        REQUIRE(renderingSystem.numMeshes == 10);
+        REQUIRE(renderingSystem.numDirectionalLights == 1);
+        REQUIRE(renderingSystem.numSpotLights == 3);
+        REQUIRE(renderingSystem.numPointLights == 6);
+
+        for (mecs::EntityID mesh : meshes) {
+            world.destroyEntity(mesh);
+        }
+        world.flushEvents();
+        REQUIRE(renderingSystem.numMeshes == 0);
+        REQUIRE(renderingSystem.numDirectionalLights == 1);
+        REQUIRE(renderingSystem.numSpotLights == 3);
+        REQUIRE(renderingSystem.numPointLights == 6);
+
+        for (mecs::EntityID spotLight : spotLights) {
+            world.entityRemoveComponent<SpotLight>(spotLight);
+        }
+        world.flushEvents();
+        REQUIRE(renderingSystem.numMeshes == 0);
+        REQUIRE(renderingSystem.numDirectionalLights == 1);
+        REQUIRE(renderingSystem.numSpotLights == 0);
+        REQUIRE(renderingSystem.numPointLights == 6);
+
+        for (mecs::EntityID pointLight : pointLights) {
+            world.entityAddComponent<Mesh>(pointLight);
+        }
+        world.flushEvents();
+
+        REQUIRE(renderingSystem.numMeshes == 6);
+        REQUIRE(renderingSystem.numDirectionalLights == 1);
+        REQUIRE(renderingSystem.numSpotLights == 0);
+        REQUIRE(renderingSystem.numPointLights == 6);
+
+        world.acquireIterator<mecs::EntityID>().forEach([&world](mecs::EntityID entity) {
+            world.destroyEntity(entity);
+        });
+        world.flushEvents();
+
+        REQUIRE(renderingSystem.numMeshes == 0);
+        REQUIRE(renderingSystem.numDirectionalLights == 0);
+        REQUIRE(renderingSystem.numSpotLights == 0);
+        REQUIRE(renderingSystem.numPointLights == 0);
+
+
+    }
+}
+
 // TEST_CASE("C++ resource management")
 // {
 //     static MecsSize gNumConstructorCalls = 0;

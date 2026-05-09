@@ -147,6 +147,14 @@ public:
         MECS_ASSERT(mCount > 0);
         return at(mCount - 1);
     }
+    [[nodiscard]]
+    bool contains(const T& value)
+    {
+        for (MecsSize i = 0; i < count(); i++) {
+            if (at(i) == value) { return true; }
+        }
+        return false;
+    }
 
     void removeAt(MecsSize index)
     {
@@ -315,7 +323,7 @@ private:
     T* mData { nullptr };
 };
 
-using MecsMoveFunc = void(*)(const void* source, void* dest, size_t numElements);
+using MecsMoveFunc = void (*)(const void* source, void* dest, size_t numElements);
 
 class MecsVecUnmanaged {
 public:
@@ -516,6 +524,8 @@ private:
     MecsVec<MecsSize> mFreeIndices;
     MecsSize mCount { 0 };
 };
+
+MecsU32 getIndexFromGenArenaIndex(GenIndex index);
 
 template <typename V>
 class SparseSet {

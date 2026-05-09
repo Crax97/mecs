@@ -23,6 +23,9 @@ MECS_API void mecsWorldFlushEvents(MecsWorld* world, void* updateData);
 MECS_API MecsIterator* mecsWorldAcquireIterator(MecsWorld* world);
 MECS_API void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator);
 
+// Systems
+MECS_API MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo* systemInfo);
+
 MECS_API MecsRegistry* mecsWorldGetRegistry(MecsWorld* world);
 
 MECS_ENDEXTERNCPP()

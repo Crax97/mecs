@@ -1,5 +1,6 @@
 
 #include "mecs/world.h"
+#include "mecs/iterator.h"
 
 #include "collections.h"
 #include "mecs/base.h"
@@ -10,7 +11,8 @@
 constexpr MecsSize kComponentInstanceIDNumBits = 24;
 constexpr MecsSize kComponentInstanceMask = ((1 << kComponentInstanceIDNumBits) - 1);
 
-void moveEntityToNewArchetype(MecsWorld* const world, MecsEntityID entity, ArchetypeID newArchetypeID);
+void mecsWorldRunSystems(MecsWorld* world, void* updateData);
+void moveEntityToNewArchetype(MecsWorld* world, MecsEntityID entity, ArchetypeID newArchetypeID);
 
 void freeEntityRow(MecsWorld* const world, const MecsEntity& ent)
 {
@@ -33,12 +35,53 @@ void mecsOnNewEntitySpawned(MecsWorld* const& world, MecsEntityID entityID, void
     ent->status = EntityStatus::eSpawned;
 }
 
-void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID, void* updateData)
+void mecsAddEntityToNewMatchingSystems(MecsWorld* world,  void* updateData, MecsEntityID entityID, const BitSet& oldEntityComponentBitset, const BitSet& newEntityBitset)
+{
+    world->systems.forEach([&](MecsSystem& system) {
+        if (system.onEntityAdded == nullptr) { return; }
+
+        const Archetype& systemArchetype = world->archetypes[system.systemArchetype];
+        const BitSet& systemBitset = systemArchetype.storage.bitset();
+
+        // If a system archetype did not include the old entity archetype
+        // but does include the new entity archetype
+        // it means the system now matches the entity
+        const bool entityWasNotIncludedBefore = !systemBitset.contains(oldEntityComponentBitset);
+        const bool entityIsIncludedNow = systemBitset.contains(newEntityBitset);
+        if (entityWasNotIncludedBefore && entityIsIncludedNow) {
+            system.onEntityAdded(system.systemData, updateData, entityID);
+        }
+    });
+}
+
+void mecsRemoveEntityFromUnmatchingSystems(MecsWorld* world,  void* updateData, MecsEntityID entityID, const BitSet& oldEntityComponentBitset, const BitSet& newEntityBitset)
+{
+    world->systems.forEach([&](MecsSystem& system) {
+        if (system.onEntityRemoved == nullptr) { return; }
+
+        const Archetype& systemArchetype = world->archetypes[system.systemArchetype];
+        const BitSet& systemBitset = systemArchetype.storage.bitset();
+
+        // If a system archetype did include the old entity archetype
+        // but does not include the new entity archetype anymore
+        // it means the system does not match the entity anymore
+        const bool entityWasIncludedBefore = systemBitset.contains(oldEntityComponentBitset);
+        const bool entityIsNotIncludedNow = !systemBitset.contains(newEntityBitset);
+        if (entityWasIncludedBefore && entityIsNotIncludedNow) {
+            system.onEntityRemoved(system.systemData, updateData, entityID);
+        }
+    });
+}
+
+void mecsOnComponentAddedToEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID, ArchetypeID oldArchetypeID, ArchetypeID newArchetypeID, void* updateData)
 {
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid index passed to mecsOnComponentAddedToEntity");
     auto& componentInfo = world->registry->components.at(componentID);
     if (componentInfo.setup != nullptr) { componentInfo.setup(world, entityID, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
+    const Archetype& oldArchetype = world->archetypes[oldArchetypeID];
+    const Archetype& newArchetype = world->archetypes[newArchetypeID];
+    mecsAddEntityToNewMatchingSystems(world, updateData, entityID, oldArchetype.storage.bitset(), newArchetype.storage.bitset());
 }
 
 void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID entityID, MecsComponentID componentID, void* updateData)
@@ -49,21 +92,34 @@ void mecsOnComponentRemovedFromEntity(MecsWorld* const& world, MecsEntityID enti
     auto& componentInfo = registry->components.at(componentID);
     if (componentInfo.teardown != nullptr) { componentInfo.teardown(world, entityID, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
 
+    ArchetypeID oldArchetypeID = ent->archetype;
     ArchetypeID newArchetypeID = findNewArchetype(world, ent->archetype, componentID, false);
-    if (ent->archetype == newArchetypeID) {
+    if (oldArchetypeID == newArchetypeID) {
         return; // The entity does not have the component;
     }
+
     moveEntityToNewArchetype(world, entityID, newArchetypeID);
+
+    const Archetype& oldArchetype = world->archetypes[oldArchetypeID];
+    const Archetype& newArchetype = world->archetypes[ent->archetype];
+    mecsRemoveEntityFromUnmatchingSystems(world, updateData, entityID, oldArchetype.storage.bitset(), newArchetype.storage.bitset());
 }
 
 void mecsOnEntityDestroyed(MecsWorld* world, MecsEntityID entityID, void* updateData)
 {
     MecsEntity* ent = world->entities.at(entityID);
-
-    const Archetype& arch = world->archetypes.at(ent->archetype);
-    arch.componentIDs.forEach([&](MecsComponentID componentID) {
-        mecsOnComponentRemovedFromEntity(world, entityID, componentID, updateData);
+    const ArchetypeID archetypeID = ent->archetype;
+    const Archetype& entityArchetype = world->archetypes.at(archetypeID);
+    const MecsRegistry* registry = world->registry;
+    entityArchetype.componentIDs.forEach([&](MecsComponentID componentID) {
+        auto& componentInfo = registry->components.at(componentID);
+        if (componentInfo.teardown != nullptr) { componentInfo.teardown(world, entityID, mecsWorldEntityGetComponent(world, entityID, componentID), updateData); }
     });
+
+    const Archetype& oldArchetype = world->archetypes[archetypeID];
+    BitSet emptyBitset;
+    mecsRemoveEntityFromUnmatchingSystems(world, updateData, entityID, oldArchetype.storage.bitset(), emptyBitset);
+    emptyBitset.destroy(world->memAllocator);
 
     freeEntityRow(world, *ent);
     world->entities.remove(world->memAllocator, entityID);
@@ -183,6 +239,10 @@ void mecsWorldFree(MecsWorld* world)
         return;
     }
 
+    world->systems.forEach([world](MecsSystem& system) {
+        mecsWorldReleaseIterator(world, system.systemIterator);
+    });
+    world->systems.destroy(world->memAllocator);
     world->archetypes.forEach([world](Archetype& bucket) {
         bucket.storage.destroy(world->memAllocator);
         bucket.componentIDs.destroy(world->memAllocator);
@@ -283,47 +343,72 @@ MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* dest
     MECS_ASSERT(mecsWorldGetRegistry(world) == mecsWorldGetRegistry(destinationWorld) && "source and destination worlds must have been spawned by the same registry");
 
     MecsRegistry* registry = mecsWorldGetRegistry(world);
-    MecsEntity* source = world->entities.at(entity);
-
     MecsEntityID newEntityID = destinationWorld->entities.push(destinationWorld->memAllocator, {});
 
-    const Archetype& sourceArch = world->archetypes.at(source->archetype);
+    ArchetypeID destArchetypeID;
+    MecsSize destEntityRow;
+    // The reason this is done in two steps is because
+    // when world == destinationWorld, we might end up modifying the entities and archetype arrays while
+    // there's a valid reference to the sourceEntity.
+    // By reacquiring the sourceEntity in the second step, we make sure to acquire a new valid reference to it
+    {
+        MecsEntity* source = world->entities.at(entity);
+        const Archetype& sourceArch = world->archetypes.at(source->archetype);
 
-    ArchetypeID archetype = findArchetype(destinationWorld, sourceArch.storage.bitset());
-    Archetype& destArch = destinationWorld->archetypes.at(archetype);
-    MecsSize row = destArch.storage.allocateRow(destinationWorld->memAllocator);
-    destArch.rowToEntity.ensureSize(world->memAllocator, row + 1);
-    destArch.rowToEntity[row] = newEntityID;
-
-    MecsEntity destEntity = {};
-    if (source->name != nullptr) {
-        destEntity.name = mecsStrDup(world->memAllocator, source->name);
+        destArchetypeID = findArchetype(destinationWorld, sourceArch.storage.bitset());
+        Archetype& destArch = destinationWorld->archetypes.at(destArchetypeID);
+        destEntityRow = destArch.storage.allocateRow(destinationWorld->memAllocator);
+        destArch.rowToEntity.ensureSize(world->memAllocator, destEntityRow + 1);
+        destArch.rowToEntity[destEntityRow] = newEntityID;
     }
-    destEntity.status = EntityStatus::eNewlySpawned;
-    destEntity.prefabID = source->prefabID;
-    destEntity.archetype = archetype;
-    destEntity.archetypeRow = row;
 
-    sourceArch.componentIDs.forEach([&](MecsComponentID component) {
-        const void* sourceRow = sourceArch.storage.getRowComponent(component, source->archetypeRow);
-        void* destRow = destArch.storage.getRowComponent(component, destEntity.archetypeRow);
-
-        MecsComponentInfoInternal& info = registry->components.at(component);
-        if (info.copy) {
-            info.copy(sourceRow, destRow, info.size);
-        } else {
-            mecsMemCpy(static_cast<const char*>(sourceRow), info.size, static_cast<char*>(destRow), info.size);
+    {
+        MecsEntity* source = world->entities.at(entity);
+        MecsEntity destEntity = {};
+        if (source->name != nullptr) {
+            destEntity.name = mecsStrDup(world->memAllocator, source->name);
         }
-    });
+        destEntity.status = EntityStatus::eNewlySpawned;
+        destEntity.prefabID = source->prefabID;
+        destEntity.archetype = destArchetypeID;
+        destEntity.archetypeRow = destEntityRow;
 
-    *destinationWorld->entities.at(newEntityID) = destEntity;
+        const Archetype& sourceArch = world->archetypes.at(source->archetype);
+        Archetype& destArch = destinationWorld->archetypes.at(destArchetypeID);
+        destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
+                                                                  .kind = WorldEventKind::eNewEntity,
+                                                                  .entityID = newEntityID,
+                                                              });
+        BitSet tempBitSet;
+        ArchetypeID oldArchetypeID = findArchetype(world, tempBitSet);
+        sourceArch.componentIDs.forEach([&](MecsComponentID component) {
+            const void* sourceRow = sourceArch.storage.getRowComponent(component, source->archetypeRow);
+            void* destRow = destArch.storage.getRowComponent(component, destEntity.archetypeRow);
 
-    destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
-                                                              .kind = WorldEventKind::eNewEntity,
-                                                              .entityID = newEntityID,
-                                                          });
 
-    return newEntityID;
+            MecsComponentInfoInternal& info = registry->components.at(component);
+            if (info.copy) {
+                info.copy(sourceRow, destRow, info.size);
+            } else {
+                mecsMemCpy(static_cast<const char*>(sourceRow), info.size, static_cast<char*>(destRow), info.size);
+            }
+            tempBitSet.set(world->memAllocator, component, true);
+            ArchetypeID newArchetypeID = findArchetype(world, tempBitSet);
+            destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
+                                                                      .kind = WorldEventKind::eNewComponent,
+                                                                      .entityID = newEntityID,
+                                                                      .componentID = component,
+                                                                      .archetypeID = oldArchetypeID,
+                                                                      .newArchetypeID = newArchetypeID,
+                                                                  });
+            oldArchetypeID = newArchetypeID;
+        });
+        tempBitSet.destroy(world->memAllocator);
+
+        *destinationWorld->entities.at(newEntityID) = destEntity;
+
+        return newEntityID;
+    }
 }
 
 void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsComponentID component)
@@ -345,17 +430,22 @@ void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsCom
                                                        .kind = WorldEventKind::eNewComponent,
                                                        .entityID = entity,
                                                        .componentID = component,
+                                                       .archetypeID = MECS_INVALID,
                                                    });
     } else {
-        Archetype& oldArchetype = world->archetypes[ent->archetype];
+        ArchetypeID oldArchetypeID = ent->archetype;
+        Archetype& oldArchetype = world->archetypes[oldArchetypeID];
 
         if (oldArchetype.storage.hasComponent(component)) {
+            // We're re-adding an existing component
             outPtr = oldArchetype.storage.getRowComponent(component, ent->archetypeRow);
             if (info.destroy != nullptr) { info.destroy(outPtr); }
             world->newEvents.push(world->memAllocator, WorldEvent {
                                                            .kind = WorldEventKind::eUpdateComponent,
                                                            .entityID = entity,
                                                            .componentID = component,
+                                                           .archetypeID = oldArchetypeID,
+                                                            .newArchetypeID = oldArchetypeID,
                                                        });
         } else {
             ArchetypeID newArchetypeID = findNewArchetype(world, ent->archetype, component, true);
@@ -366,6 +456,8 @@ void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsCom
                                                            .kind = WorldEventKind::eNewComponent,
                                                            .entityID = entity,
                                                            .componentID = component,
+                                                           .archetypeID = oldArchetypeID,
+                                                           .newArchetypeID = newArchetypeID,
                                                        });
         }
     }
@@ -445,10 +537,7 @@ void mecsWorldEntityChanged(MecsWorld* world, MecsEntityID entityID)
     MecsEntity* ent = world->entities.at(entityID);
     MECS_ASSERT(ent != nullptr && "Invalid entity ID");
     if (ent->status == EntityStatus::eDestroying) { return; }
-    world->newEvents.push(world->memAllocator, WorldEvent {
-                                               .kind = WorldEventKind::eRecreateEntity,
-                                               .entityID = entityID
-                                           });
+    world->newEvents.push(world->memAllocator, WorldEvent { .kind = WorldEventKind::eRecreateEntity, .entityID = entityID });
 }
 
 void mecsOnEntityRecreate(MecsWorld* world, MecsEntityID entityID, void* updateData)
@@ -498,7 +587,7 @@ void mecsWorldFlushEvents(MecsWorld* world, void* updateData)
         }
         case WorldEventKind::eNewComponent:
         case WorldEventKind::eUpdateComponent: {
-            mecsOnComponentAddedToEntity(world, event.entityID, event.componentID, updateData);
+            mecsOnComponentAddedToEntity(world, event.entityID, event.componentID, event.archetypeID, event.newArchetypeID, updateData);
             break;
         }
         case WorldEventKind::eDestroyComponent: {
@@ -508,6 +597,8 @@ void mecsWorldFlushEvents(MecsWorld* world, void* updateData)
         }
     });
     world->newEvents.clear();
+
+    mecsWorldRunSystems(world, updateData);
 }
 
 MecsIterator* mecsWorldAcquireIterator(MecsWorld* world)
@@ -542,8 +633,54 @@ void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator)
     MECS_ASSERT(removed);
 }
 
+MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo* systemInfo)
+{
+    MECS_ASSERT(world != nullptr && "Cannot pass a null world");
+    MECS_ASSERT(systemInfo != nullptr && "systemInfo must not be null");
+    MECS_ASSERT(systemInfo->systemRun != nullptr && "systemInfo->systemRun must not be null");
+    if (systemInfo->numComponents > 0) {
+        MECS_ASSERT(systemInfo->pComponents != nullptr && "if systemInfo->numComponents is not 0, systemInfo->pComponents must not be null");
+        MECS_ASSERT(systemInfo->pFilters != nullptr && "if systemInfo->numComponents is not 0, systemInfo->pFilters must not be null");
+    }
+
+    MecsSystem system {};
+    system.systemFlags = systemInfo->systemFlags;
+    system.systemData = systemInfo->systemData;
+    system.onEntityAdded = systemInfo->onEntityAdded;
+    system.systemRun = systemInfo->systemRun;
+    system.onEntityRemoved = systemInfo->onEntityRemoved;
+
+    system.systemIterator = mecsWorldAcquireIterator(world);
+    BitSet systemArchetypeBitset;
+
+    for (MecsU32 i = 0; i < systemInfo->numComponents; i++) {
+        MecsComponentID component = systemInfo->pComponents[i];
+        MecsIteratorFilter filter = systemInfo->pFilters[i];
+        mecsIterComponentFilter(system.systemIterator, component, filter, i);
+
+        if (filter == With || filter == Access) {
+            systemArchetypeBitset.set(world->memAllocator, component, true);
+        }
+    }
+    mecsIteratorFinalize(system.systemIterator);
+    system.systemArchetype = findArchetype(world, systemArchetypeBitset);
+    systemArchetypeBitset.destroy(world->memAllocator);
+
+    MecsSystemID systemID = world->systems.push(world->memAllocator, std::move(system));
+    return systemID;
+}
+
 MecsRegistry* mecsWorldGetRegistry(MecsWorld* world)
 {
     MECS_ASSERT(world != nullptr && "World must not be null");
     return world->registry;
+}
+
+void mecsWorldRunSystems(MecsWorld* world, void* updateData)
+{
+    world->systems.forEach([updateData](MecsSystem& system) {
+        MECS_ASSERT(system.systemRun);
+        mecsIteratorBegin(system.systemIterator);
+        system.systemRun(system.systemData, updateData, system.systemIterator);
+    });
 }

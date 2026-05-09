@@ -84,6 +84,8 @@ struct MecsIteratorArgument {
     MecsIteratorFilter filter;
 };
 
+struct MecsSystem;
+
 struct MecsWorldIterator_t {
     bool dirty = true;
     MecsWorld* world { nullptr };
@@ -95,6 +97,9 @@ struct MecsWorldIterator_t {
     MecsSize currentRow { 0 };
     MecsEntityID currentEntityID = MECS_INVALID;
     IteratorStatus status = IteratorStatus::eReleased;
+
+    // Only set when an Iterator is created for a system
+    MecsSystem* ownerSystem = nullptr;
 };
 
 struct ComponentBucket {
@@ -232,7 +237,7 @@ enum class WorldEventKind : MecsU8 {
     eNewEntity, // entityID
     eDestroyEntity, // entityID
     eRecreateEntity, // entityID
-    eNewComponent, // entityID componentID
+    eNewComponent, // entityID componentID archetypeID
     eUpdateComponent, // entityID componentID
     eDestroyComponent, // entityID componentID
 };
@@ -241,6 +246,8 @@ struct WorldEvent {
     WorldEventKind kind;
     MecsU32 entityID;
     MecsU32 componentID;
+    MecsU32 archetypeID;
+    MecsU32 newArchetypeID;
 };
 
 struct MecsWorld_t {
@@ -249,9 +256,20 @@ struct MecsWorld_t {
     MecsAllocator memAllocator;
     GenArena<MecsEntity> entities;
     MecsVec<Archetype> archetypes;
+    MecsVec<MecsSystem> systems;
     MecsVec<WorldEvent> newEvents;
     MecsVec<MecsWorldIterator_t*> reusableIterators;
     MecsVec<MecsWorldIterator_t*> acquiredIterators;
+};
+
+struct MecsSystem {
+    int systemFlags;
+    void* systemData;
+    PFNMecsOnEntityAdded onEntityAdded;
+    PFNMecsSystemRun systemRun;
+    PFNMEcsOnEntityRemoved onEntityRemoved;
+    MecsIterator* systemIterator;
+    ArchetypeID systemArchetype;
 };
 
 const char* mecsStrDup(const MecsAllocator& alloc, const char* str);

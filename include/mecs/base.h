@@ -39,6 +39,7 @@ typedef size_t MecsSize;
 typedef MecsU32 MecsEntityID;
 typedef MecsU32 MecsPrefabID;
 typedef MecsU32 MecsComponentID;
+typedef MecsU32 MecsSystemID;
 
 typedef struct MECS_API MecsRegistry_t MecsRegistry;
 typedef struct MECS_API MecsWorld_t MecsWorld;
@@ -128,6 +129,46 @@ enum MecsIteratorFilter {
     With, // Only checks if the entity has the component, retrieval returns nullptr
     Not, // Only selects entities without this component, retrieval returns nullptr
 };
+
+typedef void (*PFNMecsOnEntityAdded)(void*, void*, MecsEntityID);
+typedef void (*PFNMecsSystemRun)(void*, void*, MecsIterator*);
+typedef void (*PFNMEcsOnEntityRemoved)(void*, void*, MecsEntityID);
+
+typedef enum MecsSystemFlags_t {
+    MecsSystemFlags_None = 0,
+    // This system is not allowed to run in parallel with other systems
+    MecsSystemFlags_Exclusive = 0x01,
+} MecsSystemFlags;
+
+typedef struct MecsDefineSystemInfo_t {
+
+    // How many filters this system will iterate on
+    MecsU32 numComponents;
+
+    // An array of numComponents elements with the components this system will iterate on
+    MecsComponentID* pComponents;
+
+    // An array of numComponents elements with the filters applyed to the components in pComponents
+    MecsIteratorFilter* pFilters;
+
+    int systemFlags;
+
+    // Private data for the system
+    void* systemData;
+
+    // Can be null, called when an entity is added to the system
+    // either because the entity is newly spawned
+    // or because the entity got a new component
+    PFNMecsOnEntityAdded onEntityAdded;
+
+    // Cannot be null, called to update the system, will receive an iterator matching all the components
+    PFNMecsSystemRun systemRun;
+
+    // Can be null, called when an entity is removed from the system
+    // either because the entity is despawned or because the entity lost a component that matched
+    // the system's component set
+    PFNMEcsOnEntityRemoved onEntityRemoved;
+} MecsDefineSystemInfo;
 
 /// NOLINTEND
 MECS_ENDEXTERNCPP()

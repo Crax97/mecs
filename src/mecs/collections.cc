@@ -132,6 +132,13 @@ void MecsVecUnmanaged::grow(const MecsAllocator& allocator, MecsSize size, const
     mData = newData;
 }
 
+MecsU32 getIndexFromGenArenaIndex(GenIndex index)
+{
+    TaggedGenIndex gindex;
+    gindex.index = index;
+    return gindex.version.index;
+}
+
 void BitSet::set(const MecsAllocator& allocator, MecsSize slot, bool value)
 {
     const MecsSize wordSlot = slot / (sizeof(Word) * 8);

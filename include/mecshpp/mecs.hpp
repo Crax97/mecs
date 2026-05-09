@@ -14,10 +14,13 @@
 #include <utility>
 
 namespace mecs {
-
 namespace detail {
     struct InvokeHelper;
 }
+
+
+template<typename... Args>
+class Iterator;
 
 template <typename T>
 struct With { };
@@ -63,6 +66,8 @@ namespace detail {
         using RawType = mecs::EntityID;
         using Pointer = mecs::EntityID*;
         constexpr static bool kIsConst = true;
+        constexpr static bool kIsComponent = false;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::Access;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
         }
@@ -77,6 +82,8 @@ namespace detail {
         using RawType = T;
         using Pointer = T*;
         constexpr static bool kIsConst = false;
+        constexpr static bool kIsComponent = true;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::Access;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
             mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
@@ -92,6 +99,8 @@ namespace detail {
         using RawType = T;
         using Pointer = const T*;
         constexpr static bool kIsConst = true;
+        constexpr static bool kIsComponent = true;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::Access;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
             mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
@@ -107,6 +116,8 @@ namespace detail {
         using RawType = T;
         using Pointer = T*;
         constexpr static bool kIsConst = false;
+        constexpr static bool kIsComponent = true;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::Access;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
             mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
@@ -122,6 +133,8 @@ namespace detail {
         using RawType = T;
         using Pointer = const T*;
         constexpr static bool kIsConst = true;
+        constexpr static bool kIsComponent = true;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::Access;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
             mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Access, argIndex);
@@ -137,6 +150,8 @@ namespace detail {
         using RawType = std::remove_reference_t<std::remove_const_t<T>>;
         using Pointer = std::nullptr_t;
         constexpr static bool kIsConst = true;
+        constexpr static bool kIsComponent = true;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::With;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
             mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::With, argIndex);
@@ -152,6 +167,8 @@ namespace detail {
         using RawType = std::remove_reference_t<std::remove_const_t<T>>;
         using Pointer = std::nullptr_t;
         constexpr static bool kIsConst = true;
+        constexpr static bool kIsComponent = true;
+        constexpr static MecsIteratorFilter kFilterType = MecsIteratorFilter::Not;
         static void addArgument(MecsIterator* iterator, MecsSize argIndex)
         {
             mecsIterComponentFilter(iterator, RegistrationInfo<RawType>::getComponentID().id(), MecsIteratorFilter::Not, argIndex);
@@ -162,6 +179,65 @@ namespace detail {
             return {};
         }
     };
+
+    template<typename... Args>
+    constexpr MecsSize countComponents()
+    {
+        return ((ParameterInfo<Args>::kIsComponent ? 1U : 0U) +...);
+    }
+    template<MecsSize S>
+    void addComponentIDs(std::array<MecsComponentID, S>&, size_t)
+    {
+
+    }
+
+    template<MecsSize S, typename A, typename... Rest>
+    void addComponentIDs(std::array<MecsComponentID, S>& outArray, size_t idx)
+    {
+
+        if constexpr (ParameterInfo<A>::kIsComponent) {
+            outArray[idx] = RegistrationInfo<typename ParameterInfo<A>::RawType>::getComponentID().id();
+            addComponentIDs<S, Rest...>(outArray, idx + 1);
+        } else {
+            addComponentIDs<S, Rest...>(outArray, idx);
+        }
+    }
+
+    template<MecsSize S, typename A>
+    void addComponentIDs(std::array<MecsComponentID, S>& outArray, size_t idx)
+    {
+
+        if constexpr (ParameterInfo<A>::kIsComponent) {
+            outArray[idx] = RegistrationInfo<typename ParameterInfo<A>::RawType>::getComponentID();
+        }
+    }
+
+    template<MecsSize S>
+    void addFilter(std::array<MecsIteratorFilter, S>&, size_t)
+    {
+
+    }
+
+    template<MecsSize S, typename A, typename... Rest>
+    void addFilter(std::array<MecsIteratorFilter, S>& outArray, size_t idx)
+    {
+
+        if constexpr (ParameterInfo<A>::kIsComponent) {
+            outArray[idx] = ParameterInfo<A>::kFilterType;
+            addFilter<S, Rest...>(outArray, idx + 1);
+        } else {
+            addFilter<S, Rest...>(outArray, idx);
+        }
+    }
+
+    template<MecsSize S, typename A>
+    void addFilter(std::array<MecsIteratorFilter, S>& outArray, size_t idx)
+    {
+        if constexpr (ParameterInfo<A>::kIsComponent) {
+            outArray[idx] = ParameterInfo<A>::kFilterType;
+        }
+    }
+
 }
 
 namespace detail {
@@ -181,6 +257,138 @@ namespace detail {
     void callFuncHelper(const std::tuple<Args...>& values, Func&& func, std::index_sequence<I...> idx)
     {
         func(std::get<I>(values)...);
+    }
+    struct IteratorHelper {
+        template<typename... Args>
+        static Iterator<Args...> makeIterator(MecsIterator* iter);
+        template <class... Args>
+        static void forget(Iterator<Args...>& iter);
+    };
+
+    template<typename S, typename Run, typename A, typename R>
+    struct SystemBinderHelper;
+
+    template<typename S = void>
+    struct BasicSystemHelper {
+        constexpr static bool kValue = false;
+    };
+
+    template<typename S, typename... Args>
+    struct BasicSystemHelper<void(S::*)(mecs::World&, Iterator<Args...>&)> {
+        constexpr static bool kValue = true;
+    };
+
+    template<typename S, typename... Args>
+    struct SystemBinderHelper<
+        S,
+        void(S::*)(World&, Iterator<Args...>&),
+        void(S::*)(World&, EntityID),
+        void(S::*)(World&, EntityID)> {
+
+        template<
+            void(S::*systemRun)(World&, Iterator<Args...>&),
+            void(S::*onEntityAdded)(World&, EntityID) = nullptr,
+            void(S::*onEntityRemoved)(World&, EntityID) = nullptr>
+        constexpr static MecsSystemID bind(MecsWorld* world, S* base)
+        {
+            constexpr MecsSize kNumComponents = detail::countComponents<Args...>();
+            std::array<MecsComponentID, kNumComponents> componentIDs;
+            std::array<MecsIteratorFilter, kNumComponents> filters;
+            detail::addComponentIDs<kNumComponents, Args...>(componentIDs, 0);
+            detail::addFilter<kNumComponents, Args...>(filters, 0);
+
+            MecsDefineSystemInfo info;
+            info.numComponents = kNumComponents;
+            info.pComponents = componentIDs.data();
+            info.pFilters = filters.data();
+            info.systemData = reinterpret_cast<void*>(base);
+            if constexpr(onEntityAdded != nullptr) {
+                info.onEntityAdded = [](void* sysData, void* updateData, MecsEntityID entityID) {
+                    S& sys = *static_cast<S*>(sysData);
+                    World& world = *static_cast<World*>(updateData);
+                    (sys.*onEntityAdded)(world, {entityID});
+                };
+            } else {
+                info.onEntityAdded = nullptr;
+            }
+            if constexpr(onEntityRemoved != nullptr) {
+                info.onEntityRemoved = [](void* sysData, void* updateData, MecsEntityID entityID) {
+                    S& sys = *static_cast<S*>(sysData);
+                    World& world = *static_cast<World*>(updateData);
+                    (sys.*onEntityRemoved)(world, {entityID});
+                };
+            } else {
+                info.onEntityRemoved = nullptr;
+            }
+
+            info.systemRun = [](void* sysData, void* updateData, MecsIterator* iterator) {
+                S& sys = *static_cast<S*>(sysData);
+                World& world = *static_cast<World*>(updateData);
+                auto iter = detail::IteratorHelper::makeIterator<Args...>(iterator);
+                (sys.*systemRun)(world, iter);
+                detail::IteratorHelper::forget(iter);
+            };
+
+            info.systemFlags = 0;
+
+            return mecsWorldDefineSystem(world, &info);
+        }
+    };
+
+    template<typename S, typename... Args>
+    struct SystemBinderHelper<
+        S,
+        void(S::*)(World&, Iterator<Args...>&),
+        void*,
+        void*> {
+
+        template<
+            void(S::*systemRun)(World&, Iterator<Args...>&)>
+        constexpr static MecsSystemID bind(MecsWorld* world, S* base)
+        {
+            constexpr MecsSize kNumComponents = detail::countComponents<Args...>();
+            std::array<MecsComponentID, kNumComponents> componentIDs;
+            std::array<MecsIteratorFilter, kNumComponents> filters;
+            detail::addComponentIDs<kNumComponents, Args...>(componentIDs, 0);
+            detail::addFilter<kNumComponents, Args...>(filters, 0);
+
+            MecsDefineSystemInfo info;
+            info.numComponents = kNumComponents;
+            info.pComponents = componentIDs.data();
+            info.pFilters = filters.data();
+            info.systemData = reinterpret_cast<void*>(base);
+            info.onEntityAdded = nullptr;
+            info.onEntityRemoved = nullptr;
+
+            info.systemRun = [](void* sysData, void* updateData, MecsIterator* iterator) {
+                S& sys = *static_cast<S*>(sysData);
+                World& world = *static_cast<World*>(updateData);
+                auto iter = detail::IteratorHelper::makeIterator<Args...>(iterator);
+                (sys.*systemRun)(world, iter);
+            };
+
+            info.systemFlags = 0;
+
+            return mecsWorldDefineSystem(world, &info);
+        }
+    };
+
+    template<typename S, auto systemRun, auto onEntityAdded, auto onEntityRemoved>
+    constexpr static MecsSystemID bindStaticSystem(MecsWorld* world, S* base)
+    {
+        return SystemBinderHelper<
+            S,
+            decltype(systemRun),
+            decltype(onEntityAdded),
+            decltype(onEntityRemoved)>::template bind<systemRun, onEntityAdded, onEntityRemoved>(world, base);
+    }
+
+    template<typename S, auto systemRun>
+    constexpr static MecsSystemID bindStaticSystem(MecsWorld* world, S* base)
+    {
+        return SystemBinderHelper<
+            S,
+            decltype(systemRun), void*, void*>::template bind<systemRun>(world, base);
     }
 }
 
@@ -445,14 +653,44 @@ public:
 private:
     MecsRegistry* mHandle { nullptr };
 };
-template <typename... Args>
-class Iterator;
+template<typename S>
+concept BasicSystem = requires(S) {
+    {detail::BasicSystemHelper<decltype(&S::systemRun)>::kValue};
+};
+
+template<typename S>
+concept HasEntityAdded = requires(S& system, World& world, EntityID entityID)
+{
+    {system.onEntityAdded(world, entityID)};
+};
 
 class MECS_API World {
 public:
     MECS_CONSTRUCTORS(World)
     World(Registry& registry, const MecsWorldCreateInfo& worldCreateInfo = {});
     ~World();
+
+    template<typename S, auto Run, auto Add, auto Remove>
+    MecsSystemID addSystem(S* system)
+    {
+        return mecs::detail::bindStaticSystem<S, Run, Add, Remove>(mHandle, system);
+    }
+
+    template<typename S, auto Run>
+    MecsSystemID addSystem(S* system)
+    {
+        return mecs::detail::bindStaticSystem<S, Run>(mHandle, system);
+    }
+
+    template<BasicSystem S>
+    MecsSystemID addSystem(S* system)
+    {
+        if constexpr(HasEntityAdded<S>) {
+            return mecs::detail::bindStaticSystem<S, &S::systemRun, &S::onEntityAdded, &S::onEntityRemoved>(mHandle, system);
+        } else {
+            return mecs::detail::bindStaticSystem<S, &S::systemRun>(mHandle, system);
+        }
+    }
 
     EntityBuilder spawnEntity(const MecsEntityInfo& entityInfo = {});
     EntityBuilder spawnEntityPrefab(PrefabID prefab, const MecsEntityInfo& entityInfo = {});
@@ -604,12 +842,19 @@ public:
 
 private:
     friend class World;
+    friend class detail::IteratorHelper;
 
     Iterator(World& world)
     {
         mHandle = mecsWorldAcquireIterator(world.getHandle());
         detail::initIterator<Args...>(mHandle, std::make_index_sequence<sizeof...(Args)>());
         mecsIteratorFinalize(mHandle);
+    }
+    Iterator(MecsIterator* handle) noexcept
+        : mHandle(handle) {}
+    void forget()
+    {
+        mHandle = nullptr;
     }
     MecsIterator* mHandle { nullptr };
 };
@@ -619,6 +864,19 @@ namespace utils {
     MecsSize count(Iterator<Args...>& iterator)
     {
         return mecsUtilIteratorCount(iterator.getHandle());
+    }
+}
+
+namespace detail {
+    template <typename... Args>
+    Iterator<Args...> IteratorHelper::makeIterator(MecsIterator* iter)
+    {
+        return {iter};
+    }
+    template <typename... Args>
+    void IteratorHelper::forget(Iterator<Args...>& iter)
+    {
+        iter.forget();
     }
 }
 }
