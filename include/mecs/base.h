@@ -137,12 +137,13 @@ typedef void (*PFNMEcsOnEntityRemoved)(void*, void*, MecsEntityID);
 typedef enum MecsSystemFlags_t {
     MecsSystemFlags_None = 0,
     // This system is not allowed to run in parallel with other systems
+    // Not used at the moment (all systems run sequentially in order of insertion)
     MecsSystemFlags_Exclusive = 0x01,
 } MecsSystemFlags;
 
 typedef struct MecsDefineSystemInfo_t {
 
-    // How many filters this system will iterate on
+    // How many components this system will match
     MecsU32 numComponents;
 
     // An array of numComponents elements with the components this system will iterate on
@@ -151,6 +152,7 @@ typedef struct MecsDefineSystemInfo_t {
     // An array of numComponents elements with the filters applyed to the components in pComponents
     MecsIteratorFilter* pFilters;
 
+    // Reserved for future use
     int systemFlags;
 
     // Private data for the system
@@ -158,15 +160,20 @@ typedef struct MecsDefineSystemInfo_t {
 
     // Can be null, called when an entity is added to the system
     // either because the entity is newly spawned
-    // or because the entity got a new component
+    // or because the entity got a new component that matches the system's component set
+    // This is only called when an entity matches for the first time the system's component set
+    // If SystemA matches components (A, B) and an entity's component set goes from (A) to (A, B)
+    // onEntityAdded is called for the system. Should the entity go from (A, B) to (A, B, C), onEntityAdded
+    // won't be called again
     PFNMecsOnEntityAdded onEntityAdded;
 
-    // Cannot be null, called to update the system, will receive an iterator matching all the components
+    // Cannot be null, called to update the system, will receive an iterator with the entities
+    // matching all the components
     PFNMecsSystemRun systemRun;
 
     // Can be null, called when an entity is removed from the system
     // either because the entity is despawned or because the entity lost a component that matched
-    // the system's component set
+    // the system's component set.
     PFNMEcsOnEntityRemoved onEntityRemoved;
 } MecsDefineSystemInfo;
 
