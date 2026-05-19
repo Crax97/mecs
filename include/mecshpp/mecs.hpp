@@ -293,7 +293,7 @@ namespace detail {
             void(S::*systemRun)(World&, Iterator<Args...>&),
             void(S::*onEntityAdded)(World&, EntityID) = nullptr,
             void(S::*onEntityRemoved)(World&, EntityID) = nullptr>
-        constexpr static MecsSystemID bind(MecsWorld* world, S* base)
+        constexpr static MecsSystemID bind(MecsWorld* world, S* base, MecsScheduleID scheduleID)
         {
             constexpr MecsSize kNumComponents = detail::countComponents<Args...>();
             std::array<MecsComponentID, kNumComponents> componentIDs;
@@ -335,7 +335,7 @@ namespace detail {
 
             info.systemFlags = 0;
 
-            return mecsWorldDefineSystem(world, &info);
+            return mecsWorldDefineSystem(world, &info, scheduleID);
         }
     };
 
@@ -348,7 +348,7 @@ namespace detail {
 
         template<
             void(S::*systemRun)(World&, Iterator<Args...>&)>
-        constexpr static MecsSystemID bind(MecsWorld* world, S* base)
+        constexpr static MecsSystemID bind(MecsWorld* world, S* base, MecsScheduleID scheduleID)
         {
             constexpr MecsSize kNumComponents = detail::countComponents<Args...>();
             std::array<MecsComponentID, kNumComponents> componentIDs;
@@ -373,26 +373,26 @@ namespace detail {
 
             info.systemFlags = 0;
 
-            return mecsWorldDefineSystem(world, &info);
+            return mecsWorldDefineSystem(world, &info, scheduleID);
         }
     };
 
     template<typename S, auto systemRun, auto onEntityAdded, auto onEntityRemoved>
-    constexpr static MecsSystemID bindStaticSystem(MecsWorld* world, S* base)
+    constexpr static MecsSystemID bindStaticSystem(MecsWorld* world, S* base, MecsScheduleID scheduleID)
     {
         return SystemBinderHelper<
             S,
             decltype(systemRun),
             decltype(onEntityAdded),
-            decltype(onEntityRemoved)>::template bind<systemRun, onEntityAdded, onEntityRemoved>(world, base);
+            decltype(onEntityRemoved)>::template bind<systemRun, onEntityAdded, onEntityRemoved>(world, base, scheduleID);
     }
 
     template<typename S, auto systemRun>
-    constexpr static MecsSystemID bindStaticSystem(MecsWorld* world, S* base)
+    constexpr static MecsSystemID bindStaticSystem(MecsWorld* world, S* base, MecsScheduleID scheduleID)
     {
         return SystemBinderHelper<
             S,
-            decltype(systemRun), void*, void*>::template bind<systemRun>(world, base);
+            decltype(systemRun), void*, void*>::template bind<systemRun>(world, base, scheduleID);
     }
 }
 
@@ -674,25 +674,28 @@ public:
     World(Registry& registry, const MecsWorldCreateInfo& worldCreateInfo = {});
     ~World();
 
-    template<typename S, auto Run, auto Add, auto Remove>
-    MecsSystemID addSystem(S* system)
+    ScheduleID defineSchedule(const MecsDefineScheduleInfo& info);
+    void runSchedule(ScheduleID scheduleID);
+
+    template <typename S, auto Run, auto Add, auto Remove>
+    MecsSystemID addSystem(S* system, ScheduleID scheduleID)
     {
-        return mecs::detail::bindStaticSystem<S, Run, Add, Remove>(mHandle, system);
+        return mecs::detail::bindStaticSystem<S, Run, Add, Remove>(mHandle, system, scheduleID.mID);
     }
 
     template<typename S, auto Run>
-    MecsSystemID addSystem(S* system)
+    MecsSystemID addSystem(S* system, ScheduleID scheduleID)
     {
-        return mecs::detail::bindStaticSystem<S, Run>(mHandle, system);
+        return mecs::detail::bindStaticSystem<S, Run>(mHandle, system, scheduleID.mID);
     }
 
     template<BasicSystem S>
-    MecsSystemID addSystem(S* system)
+    MecsSystemID addSystem(S* system, ScheduleID scheduleID)
     {
         if constexpr(HasEntityAdded<S>) {
-            return mecs::detail::bindStaticSystem<S, &S::systemRun, &S::onEntityAdded, &S::onEntityRemoved>(mHandle, system);
+            return mecs::detail::bindStaticSystem<S, &S::systemRun, &S::onEntityAdded, &S::onEntityRemoved>(mHandle, system, scheduleID.mID);
         } else {
-            return mecs::detail::bindStaticSystem<S, &S::systemRun>(mHandle, system);
+            return mecs::detail::bindStaticSystem<S, &S::systemRun>(mHandle, system, scheduleID.mID);
         }
     }
 

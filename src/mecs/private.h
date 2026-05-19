@@ -85,6 +85,7 @@ struct MecsIteratorArgument {
 };
 
 struct MecsSystem;
+struct MecsSchedule;
 
 struct MecsWorldIterator_t {
     bool dirty = true;
@@ -225,12 +226,21 @@ struct Archetype {
     MecsVec<MecsEntityID> rowToEntity; // Tracks to which entity each row belongs;
 };
 
+enum MecsEntityFlags {
+    MecsEntityFlags_None = 0,
+
+    // Toggled when an entity is added and then destroyed in before a flush(),
+    // used to signal to a system that the entity should not be considered
+    MecsEntityFlags_AliveOneFrame = 1 << 0,
+};
+
 struct MecsEntity {
     const char* name = nullptr;
-    EntityStatus status = EntityStatus::eNewlySpawned;
     ArchetypeID archetype;
-    MecsSize archetypeRow;
     MecsPrefabID prefabID;
+    MecsSize archetypeRow;
+    EntityStatus status = EntityStatus::eNewlySpawned;
+    MecsU8 entityFlags;
 };
 
 enum class WorldEventKind : MecsU8 {
@@ -240,6 +250,7 @@ enum class WorldEventKind : MecsU8 {
     eNewComponent, // entityID componentID archetypeID
     eUpdateComponent, // entityID componentID
     eDestroyComponent, // entityID componentID
+    eSystemAdded, // entityID -> systemID, componentID -> scheduleID, archetypeID
 };
 
 struct WorldEvent {
@@ -256,10 +267,17 @@ struct MecsWorld_t {
     MecsAllocator memAllocator;
     GenArena<MecsEntity> entities;
     MecsVec<Archetype> archetypes;
-    MecsVec<MecsSystem> systems;
+    MecsVec<MecsSchedule> schedules;
     MecsVec<WorldEvent> newEvents;
     MecsVec<MecsWorldIterator_t*> reusableIterators;
     MecsVec<MecsWorldIterator_t*> acquiredIterators;
+
+    MecsU64 timestamp;
+};
+
+struct MecsSchedule {
+    const char* scheduleName;
+    MecsVec<MecsSystem> systems;
 };
 
 struct MecsSystem {
@@ -270,6 +288,7 @@ struct MecsSystem {
     PFNMEcsOnEntityRemoved onEntityRemoved;
     MecsIterator* systemIterator;
     ArchetypeID systemArchetype;
+    MecsU64 timestamp;
 };
 
 const char* mecsStrDup(const MecsAllocator& alloc, const char* str);

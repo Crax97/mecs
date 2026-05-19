@@ -40,6 +40,7 @@ typedef MecsU32 MecsEntityID;
 typedef MecsU32 MecsPrefabID;
 typedef MecsU32 MecsComponentID;
 typedef MecsU32 MecsSystemID;
+typedef MecsU32 MecsScheduleID;
 
 typedef struct MECS_API MecsRegistry_t MecsRegistry;
 typedef struct MECS_API MecsWorld_t MecsWorld;
@@ -176,6 +177,11 @@ typedef struct MecsDefineSystemInfo_t {
     // the system's component set.
     PFNMEcsOnEntityRemoved onEntityRemoved;
 } MecsDefineSystemInfo;
+
+typedef struct MecsDefineScheduleInfo_t {
+    // Can be null
+    const char* scheduleName;
+} MecsDefineScheduleInfo;
 
 /// NOLINTEND
 MECS_ENDEXTERNCPP()

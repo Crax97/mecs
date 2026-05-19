@@ -96,6 +96,15 @@ World::~World()
     mHandle = nullptr;
 }
 
+ScheduleID World::defineSchedule(const MecsDefineScheduleInfo& info)
+{
+    return { mecsWorldDefineSchedule(mHandle, &info) };
+}
+void World::runSchedule(ScheduleID scheduleID)
+{
+    mecsWorldRunSchedule(mHandle, scheduleID.mID, this);
+}
+
 EntityBuilder World::spawnEntity(const MecsEntityInfo& entityInfo)
 {
     return spawnEntityPrefab(PrefabID::invalid(), entityInfo);

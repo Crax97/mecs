@@ -58,3 +58,4 @@
 DEFINE_ID(ComponentID);
 DEFINE_ID(PrefabID);
 DEFINE_ID(EntityID);
+DEFINE_ID(ScheduleID);

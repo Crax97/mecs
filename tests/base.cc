@@ -467,6 +467,8 @@ TEST_CASE("Systems")
         SystemACD acdSystem;
         acdSystem.numEntities = 0;
 
+        MecsScheduleID defaultSchedule = mecsWorldDefineSchedule(world, nullptr);
+
         {
             MecsComponentID components[] = {Component_ComponentA, Component_ComponentB};
             MecsIteratorFilter filters[] = {MecsIteratorFilter::Access, MecsIteratorFilter::Access};
@@ -478,7 +480,7 @@ TEST_CASE("Systems")
             systemInfo.systemRun = systemRun_SystemAB;
             systemInfo.onEntityRemoved = onEntityRemoved_SystemAB;
             systemInfo.systemData = &abSystem;
-            MecsSystemID abSystemID = mecsWorldDefineSystem(world, &systemInfo);
+            MecsSystemID abSystemID = mecsWorldDefineSystem(world, &systemInfo, defaultSchedule);
         }
 
         {
@@ -492,7 +494,7 @@ TEST_CASE("Systems")
             systemInfo.systemRun = systemRun_SystemACD;
             systemInfo.onEntityRemoved = onEntityRemoved_SystemACD;
             systemInfo.systemData = &acdSystem;
-            MecsSystemID abSystemID = mecsWorldDefineSystem(world, &systemInfo);
+            MecsSystemID abSystemID = mecsWorldDefineSystem(world, &systemInfo, defaultSchedule);
         }
 
         mecsWorldFlushEvents(world, nullptr);
@@ -670,154 +672,294 @@ TEST_CASE("Systems")
 
         } renderingSystem {};
 
-        mecs::World world(registry);
+        SECTION("Simulating a real-use case scenario") {
+            mecs::World world(registry);
 
-        /** Simple API: binding a system that will interact with only one component set
-        *   At least the systemRun method is required:
-        *    void systemRun(mecs::World& world, mecs::Iterator<Components...>& iterator);
-        *   The following methods are optional
-        *    void onEntityAdded(mecs::World& world, mecs::EntityID entity);
-        *    void onEntityRemoved(mecs::World& world, mecs::EntityID entity);
-        **/
-        world.addSystem<SystemAB_Cpp>(&abSystem);
+            mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+            /** Simple API: binding a system that will interact with only one component set
+            *   At least the systemRun method is required:
+            *    void systemRun(mecs::World& world, mecs::Iterator<Components...>& iterator);
+            *   The following methods are optional
+            *    void onEntityAdded(mecs::World& world, mecs::EntityID entity);
+            *    void onEntityRemoved(mecs::World& world, mecs::EntityID entity);
+            **/
+            world.addSystem<SystemAB_Cpp>(&abSystem, defaultSchedule);
 
-        /*  Explicit API: useful for having one system interact with multiple component sets
-        *   In this case we have the same RenderingSystem that has to interact with multiple
-        *   different rendering-related components (e.g to add them to a scene)
-        */
-        world.addSystem<RenderingSystem,
-                        &RenderingSystem::updateMeshes,
-                        &RenderingSystem::onMeshAdded,
-                        &RenderingSystem::onMeshRemoved>(&renderingSystem);
-        world.addSystem<RenderingSystem,
-                        &RenderingSystem::updateDirectionalLights,
-                        &RenderingSystem::onDirectionalLightAdded,
-                        &RenderingSystem::onDirectionalLightRemoved>(&renderingSystem);
-        world.addSystem<RenderingSystem,
-                        &RenderingSystem::updatePointLightLights,
-                        &RenderingSystem::onPointLightLightAdded,
-                        &RenderingSystem::onPointLightRemoved>(&renderingSystem);
-        world.addSystem<RenderingSystem,
-                        &RenderingSystem::updateSpotLightLights,
-                        &RenderingSystem::onSpotLightAdded,
-                        &RenderingSystem::onSpotLightRemoved>(&renderingSystem);
+            /*  Explicit API: useful for having one system interact with multiple component sets
+            *   In this case we have the same RenderingSystem that has to interact with multiple
+            *   different rendering-related components (e.g to add them to a scene)
+            */
+            world.addSystem<RenderingSystem,
+                            &RenderingSystem::updateMeshes,
+                            &RenderingSystem::onMeshAdded,
+                            &RenderingSystem::onMeshRemoved>(&renderingSystem, defaultSchedule);
+            world.addSystem<RenderingSystem,
+                            &RenderingSystem::updateDirectionalLights,
+                            &RenderingSystem::onDirectionalLightAdded,
+                            &RenderingSystem::onDirectionalLightRemoved>(&renderingSystem, defaultSchedule);
+            world.addSystem<RenderingSystem,
+                            &RenderingSystem::updatePointLightLights,
+                            &RenderingSystem::onPointLightLightAdded,
+                            &RenderingSystem::onPointLightRemoved>(&renderingSystem, defaultSchedule);
+            world.addSystem<RenderingSystem,
+                            &RenderingSystem::updateSpotLightLights,
+                            &RenderingSystem::onSpotLightAdded,
+                            &RenderingSystem::onSpotLightRemoved>(&renderingSystem, defaultSchedule);
 
-        mecs::EntityID entityA = world.spawnEntity();
-        world.flushEvents();
-
-        REQUIRE(abSystem.counter == 0);
-
-        world.entityAddComponent<ComponentA>(entityA);
-        world.flushEvents();
-        REQUIRE(abSystem.counter == 0);
-        world.entityAddComponent<ComponentB>(entityA);
-        world.flushEvents();
-        REQUIRE(abSystem.counter == 1);
-        world.entityAddComponent<ComponentC>(entityA);
-        world.flushEvents();
-        REQUIRE(abSystem.counter == 1);
-
-        std::vector<mecs::EntityID> meshes;
-        std::vector<mecs::EntityID> onlyTransforms;
-        std::vector<mecs::EntityID> spotLights;
-        std::vector<mecs::EntityID> pointLights;
-        for (int i = 0; i < 10; i ++) {
-            meshes.push_back(world.spawnEntity()
-                .withComponent<Transform>()
-                .withComponent<Mesh>());
-        }
-        for (int i = 0; i < 5; i ++) {
-            onlyTransforms.push_back(world.spawnEntity()
-                .withComponent<Transform>());
-        }
-
-
-        world.flushEvents();
-
-        REQUIRE(renderingSystem.numMeshes == 10);
-
-        world.spawnEntity()
-            .withComponent<Transform>()
-            .withComponent<DirectionalLight>();
-        world.flushEvents();
-
-        for (int i = 0; i < 3; i ++) {
-            spotLights.push_back(world.spawnEntity()
-                .withComponent<SpotLight>()
-                .withComponent<Transform>());
-        }
-        world.flushEvents();
-
-        for (int i = 0; i < 6; i ++) {
-            pointLights.push_back(world.spawnEntity()
-                .withComponent<PointLight>()
-                .withComponent<Transform>());
+            mecs::EntityID entityA = world.spawnEntity();
             world.flushEvents();
+
+            REQUIRE(abSystem.counter == 0);
+
+            world.entityAddComponent<ComponentA>(entityA);
+            world.flushEvents();
+            REQUIRE(abSystem.counter == 0);
+            world.entityAddComponent<ComponentB>(entityA);
+            world.flushEvents();
+            REQUIRE(abSystem.counter == 1);
+            world.entityAddComponent<ComponentC>(entityA);
+            world.flushEvents();
+            REQUIRE(abSystem.counter == 1);
+
+            std::vector<mecs::EntityID> meshes;
+            std::vector<mecs::EntityID> onlyTransforms;
+            std::vector<mecs::EntityID> spotLights;
+            std::vector<mecs::EntityID> pointLights;
+            for (int i = 0; i < 10; i ++) {
+                meshes.push_back(world.spawnEntity()
+                    .withComponent<Transform>()
+                    .withComponent<Mesh>());
+            }
+            for (int i = 0; i < 5; i ++) {
+                onlyTransforms.push_back(world.spawnEntity()
+                    .withComponent<Transform>());
+            }
+
+
+            world.flushEvents();
+
+            REQUIRE(renderingSystem.numMeshes == 10);
+
+            world.spawnEntity()
+                .withComponent<Transform>()
+                .withComponent<DirectionalLight>();
+            world.flushEvents();
+
+            for (int i = 0; i < 3; i ++) {
+                spotLights.push_back(world.spawnEntity()
+                    .withComponent<SpotLight>()
+                    .withComponent<Transform>());
+            }
+            world.flushEvents();
+
+            for (int i = 0; i < 6; i ++) {
+                pointLights.push_back(world.spawnEntity()
+                    .withComponent<PointLight>()
+                    .withComponent<Transform>());
+                world.flushEvents();
+            }
+            world.flushEvents();
+
+            REQUIRE(renderingSystem.numMeshes == 10);
+            REQUIRE(renderingSystem.numDirectionalLights == 1);
+            REQUIRE(renderingSystem.numSpotLights == 3);
+            REQUIRE(renderingSystem.numPointLights == 6);
+            for (int i = 0; i < 5; i ++) {
+                onlyTransforms.push_back(world.spawnEntity()
+                    .withComponent<Transform>());
+            }
+            world.flushEvents();
+            REQUIRE(renderingSystem.numMeshes == 10);
+            REQUIRE(renderingSystem.numDirectionalLights == 1);
+            REQUIRE(renderingSystem.numSpotLights == 3);
+            REQUIRE(renderingSystem.numPointLights == 6);
+
+            for (mecs::EntityID transform : onlyTransforms) {
+                world.destroyEntity(transform);
+            }
+            world.flushEvents();
+            REQUIRE(renderingSystem.numMeshes == 10);
+            REQUIRE(renderingSystem.numDirectionalLights == 1);
+            REQUIRE(renderingSystem.numSpotLights == 3);
+            REQUIRE(renderingSystem.numPointLights == 6);
+
+            for (mecs::EntityID mesh : meshes) {
+                world.destroyEntity(mesh);
+            }
+            world.flushEvents();
+            REQUIRE(renderingSystem.numMeshes == 0);
+            REQUIRE(renderingSystem.numDirectionalLights == 1);
+            REQUIRE(renderingSystem.numSpotLights == 3);
+            REQUIRE(renderingSystem.numPointLights == 6);
+
+            for (mecs::EntityID spotLight : spotLights) {
+                world.entityRemoveComponent<SpotLight>(spotLight);
+            }
+            world.flushEvents();
+            REQUIRE(renderingSystem.numMeshes == 0);
+            REQUIRE(renderingSystem.numDirectionalLights == 1);
+            REQUIRE(renderingSystem.numSpotLights == 0);
+            REQUIRE(renderingSystem.numPointLights == 6);
+
+            for (mecs::EntityID pointLight : pointLights) {
+                world.entityAddComponent<Mesh>(pointLight);
+            }
+            world.flushEvents();
+
+            REQUIRE(renderingSystem.numMeshes == 6);
+            REQUIRE(renderingSystem.numDirectionalLights == 1);
+            REQUIRE(renderingSystem.numSpotLights == 0);
+            REQUIRE(renderingSystem.numPointLights == 6);
+
+            world.acquireIterator<mecs::EntityID>().forEach([&world](mecs::EntityID entity) {
+                world.destroyEntity(entity);
+            });
+            world.flushEvents();
+
+            REQUIRE(renderingSystem.numMeshes == 0);
+            REQUIRE(renderingSystem.numDirectionalLights == 0);
+            REQUIRE(renderingSystem.numSpotLights == 0);
+            REQUIRE(renderingSystem.numPointLights == 0);
         }
-        world.flushEvents();
+        SECTION("Edge cases - Adding a system to a world with existing entities")
+        {
+            mecs::World world(registry);
 
-        REQUIRE(renderingSystem.numMeshes == 10);
-        REQUIRE(renderingSystem.numDirectionalLights == 1);
-        REQUIRE(renderingSystem.numSpotLights == 3);
-        REQUIRE(renderingSystem.numPointLights == 6);
-        for (int i = 0; i < 5; i ++) {
-            onlyTransforms.push_back(world.spawnEntity()
-                .withComponent<Transform>());
+            mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+
+            SystemAB_Cpp systemAB;
+
+            std::vector<mecs::EntityID> entitiesAB;
+            std::vector<mecs::EntityID> entitiesA;
+            entitiesAB.reserve(100);
+            for (int i = 0; i < 100; i ++) {
+                entitiesAB.push_back(world.spawnEntity()
+                    .withComponent<ComponentA>()
+                    .withComponent<ComponentB>());
+            }
+            entitiesA.reserve(10);
+            for (int i = 0; i < 10; i ++) {
+                entitiesAB.push_back(world.spawnEntity()
+                    .withComponent<ComponentA>());
+            }
+            world.flushEvents();
+
+            world.addSystem<SystemAB_Cpp>(&systemAB, defaultSchedule);
+            world.flushEvents();
+            REQUIRE(systemAB.counter == 100);
+
+            for (auto ab : entitiesAB) {
+                world.destroyEntity(ab);
+            }
+            world.flushEvents();
+            REQUIRE(systemAB.counter == 0);
         }
-        world.flushEvents();
-        REQUIRE(renderingSystem.numMeshes == 10);
-        REQUIRE(renderingSystem.numDirectionalLights == 1);
-        REQUIRE(renderingSystem.numSpotLights == 3);
-        REQUIRE(renderingSystem.numPointLights == 6);
+        SECTION("Edge cases - Adding a system to a world with pending destroy entities")
+        {
+            mecs::World world(registry);
 
-        for (mecs::EntityID transform : onlyTransforms) {
-            world.destroyEntity(transform);
-        }
-        world.flushEvents();
-        REQUIRE(renderingSystem.numMeshes == 10);
-        REQUIRE(renderingSystem.numDirectionalLights == 1);
-        REQUIRE(renderingSystem.numSpotLights == 3);
-        REQUIRE(renderingSystem.numPointLights == 6);
+            mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+            SystemAB_Cpp systemAB;
 
-        for (mecs::EntityID mesh : meshes) {
-            world.destroyEntity(mesh);
-        }
-        world.flushEvents();
-        REQUIRE(renderingSystem.numMeshes == 0);
-        REQUIRE(renderingSystem.numDirectionalLights == 1);
-        REQUIRE(renderingSystem.numSpotLights == 3);
-        REQUIRE(renderingSystem.numPointLights == 6);
+            std::vector<mecs::EntityID> entitiesAB;
+            std::vector<mecs::EntityID> entitiesA;
+            entitiesAB.reserve(100);
+            for (int i = 0; i < 100; i ++) {
+                entitiesAB.push_back(world.spawnEntity()
+                    .withComponent<ComponentA>()
+                    .withComponent<ComponentB>());
+            }
+            entitiesA.reserve(10);
+            for (int i = 0; i < 10; i ++) {
+                entitiesAB.push_back(world.spawnEntity()
+                    .withComponent<ComponentA>());
+            }
+            world.flushEvents();
 
-        for (mecs::EntityID spotLight : spotLights) {
-            world.entityRemoveComponent<SpotLight>(spotLight);
-        }
-        world.flushEvents();
-        REQUIRE(renderingSystem.numMeshes == 0);
-        REQUIRE(renderingSystem.numDirectionalLights == 1);
-        REQUIRE(renderingSystem.numSpotLights == 0);
-        REQUIRE(renderingSystem.numPointLights == 6);
+            for (int i = 0; i < 50; i ++) {
+                world.destroyEntity(entitiesAB[i]);
+            }
+            world.addSystem<SystemAB_Cpp>(&systemAB, defaultSchedule);
+            for (int i = 50; i < 100; i ++) {
+                world.destroyEntity(entitiesAB[i]);
+            }
+            world.flushEvents();
+            REQUIRE(systemAB.counter == 0);
 
-        for (mecs::EntityID pointLight : pointLights) {
-            world.entityAddComponent<Mesh>(pointLight);
-        }
-        world.flushEvents();
-
-        REQUIRE(renderingSystem.numMeshes == 6);
-        REQUIRE(renderingSystem.numDirectionalLights == 1);
-        REQUIRE(renderingSystem.numSpotLights == 0);
-        REQUIRE(renderingSystem.numPointLights == 6);
-
-        world.acquireIterator<mecs::EntityID>().forEach([&world](mecs::EntityID entity) {
+            mecs::EntityID entity = world.spawnEntity()
+                .withComponent<ComponentA>()
+                .withComponent<ComponentB>();
             world.destroyEntity(entity);
-        });
-        world.flushEvents();
+            world.flushEvents();
+            REQUIRE(systemAB.counter == 0);
+        }
+        SECTION("Edge cases - Messing with spawning entities before/after/before&after adding a matching system")
+        {
+            {
+                mecs::World world(registry);
 
-        REQUIRE(renderingSystem.numMeshes == 0);
-        REQUIRE(renderingSystem.numDirectionalLights == 0);
-        REQUIRE(renderingSystem.numSpotLights == 0);
-        REQUIRE(renderingSystem.numPointLights == 0);
+                mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+                SystemAB_Cpp systemAB;
+                world.addSystem<SystemAB_Cpp>(&systemAB, defaultSchedule);
 
+                mecs::EntityID entity = world.spawnEntity()
+                    .withComponent<ComponentA>()
+                    .withComponent<ComponentB>();
+                world.destroyEntity(entity);
+                world.flushEvents();
+                REQUIRE(systemAB.counter == 0);
+            }
+            {
+                mecs::World world(registry);
 
+                mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+                SystemAB_Cpp systemAB;
+                world.addSystem<SystemAB_Cpp>(&systemAB, defaultSchedule);
+
+                for (int i = 0; i < 10; i ++) {
+                    world.spawnEntity()
+                        .withComponent<ComponentA>()
+                        .withComponent<ComponentB>();
+                }
+                world.flushEvents();
+                REQUIRE(systemAB.counter == 10);
+            }
+            {
+                mecs::World world(registry);
+
+                mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+                SystemAB_Cpp systemAB;
+
+                for (int i = 0; i < 10; i ++) {
+                    world.spawnEntity()
+                        .withComponent<ComponentA>()
+                        .withComponent<ComponentB>();
+                }
+                world.addSystem<SystemAB_Cpp>(&systemAB, defaultSchedule);
+                world.flushEvents();
+                REQUIRE(systemAB.counter == 10);
+            }
+            {
+                mecs::World world(registry);
+
+                mecs::ScheduleID defaultSchedule = world.defineSchedule({});
+                SystemAB_Cpp systemAB;
+
+                for (int i = 0; i < 5; i ++) {
+                    world.spawnEntity()
+                        .withComponent<ComponentA>()
+                        .withComponent<ComponentB>();
+                }
+                world.addSystem<SystemAB_Cpp>(&systemAB, defaultSchedule);
+                for (int i = 0; i < 5; i ++) {
+                    world.spawnEntity()
+                        .withComponent<ComponentA>()
+                        .withComponent<ComponentB>();
+                }
+                world.flushEvents();
+                REQUIRE(systemAB.counter == 10);
+            }
+        }
     }
 }
 

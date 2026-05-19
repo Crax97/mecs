@@ -23,7 +23,13 @@ MECS_API void mecsWorldFlushEvents(MecsWorld* world, void* updateData);
 MECS_API MecsIterator* mecsWorldAcquireIterator(MecsWorld* world);
 MECS_API void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator);
 
-// Utilities
+/// Schedules & Schedules
+/// A schedule is a group of systems that can be run
+MECS_API MecsScheduleID mecsWorldDefineSchedule(MecsWorld* world, const MecsDefineScheduleInfo* scheduleInfo);
+MECS_API void mecsWorldRunSchedule(MecsWorld* world, MecsScheduleID scheduleID, void* updateData);
+MECS_API MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo* systemInfo, MecsScheduleID scheduleID);
+
+/// Utilities
 
 /// These utility functions should be used very sparingly: always use MecsEntityID to interact with entities in the world.
 /// Use these only when you need to pass an entityID to a system which isn't guaranteed to preserve the generation bits of
@@ -38,9 +44,6 @@ MECS_API MecsU32 mecsEntityIDToIndex(MecsEntityID);
 /// @returns MECS_INVALID if there's no such entity, otherwise a valid MecsEntityID
 /// @note Use sparingly: see the note above
 MECS_API MecsEntityID mecsWorldEntityIndexToID(MecsWorld* world, MecsU32 entityIndex);
-
-// Systems
-MECS_API MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo* systemInfo);
 
 MECS_API MecsRegistry* mecsWorldGetRegistry(MecsWorld* world);
 
