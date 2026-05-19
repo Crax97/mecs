@@ -519,6 +519,25 @@ public:
         return &entry.value;
     }
 
+    bool isValidIndex(MecsU32 index)
+    {
+        if (index > mEntries.count()) { return false; }
+        Entry& entry = mEntries.at(index);
+        return entry.tagGeneration.taken;
+    }
+
+    MecsEntityID idAtIndex(MecsU32 index)
+    {
+        MECS_ASSERT(index < mEntries.count());
+        Entry& entry = mEntries.at(index);
+        MECS_ASSERT(entry.tagGeneration.taken);
+
+        TaggedGenIndex tagIndex;
+        tagIndex.version.index = index;
+        tagIndex.version.generation = entry.tagGeneration.generation;
+        return tagIndex.index;
+    }
+
 private:
     MecsVec<Entry> mEntries;
     MecsVec<MecsSize> mFreeIndices;

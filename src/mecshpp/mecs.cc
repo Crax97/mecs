@@ -5,6 +5,11 @@
 
 using namespace mecs;
 
+MecsU32 utils::entityIDToIndex(mecs::EntityID entityID)
+{
+    return mecsEntityIDToIndex(entityID.mID);
+}
+
 Registry::Registry(const MecsRegistryCreateInfo& registryInfo)
 {
     mHandle = mecsRegistryCreate(&registryInfo);

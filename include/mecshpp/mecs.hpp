@@ -18,6 +18,9 @@ namespace detail {
     struct InvokeHelper;
 }
 
+namespace utils {
+    MecsU32 entityIDToIndex(mecs::EntityID entityID);
+}
 
 template<typename... Args>
 class Iterator;
@@ -760,6 +763,14 @@ public:
     T getService()
     {
         return mServiceRegistry.get<T>();
+    }
+
+    [[nodiscard]]
+    std::optional<mecs::EntityID> getEntityIDFromIndex(MecsU32 index) const
+    {
+        MecsEntityID result = mecsWorldEntityIndexToID(mHandle, index);
+        if (result == MECS_INVALID) {return std::nullopt; }
+        return mecs::EntityID {result};
     }
 
 private:

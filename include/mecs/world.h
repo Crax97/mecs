@@ -23,6 +23,22 @@ MECS_API void mecsWorldFlushEvents(MecsWorld* world, void* updateData);
 MECS_API MecsIterator* mecsWorldAcquireIterator(MecsWorld* world);
 MECS_API void mecsWorldReleaseIterator(MecsWorld* world, MecsIterator* iterator);
 
+// Utilities
+
+/// These utility functions should be used very sparingly: always use MecsEntityID to interact with entities in the world.
+/// Use these only when you need to pass an entityID to a system which isn't guaranteed to preserve the generation bits of
+/// the EntityID
+/// The main issue of these functions is that you could convert an entity's ID to an index, but you're not guaranteed
+/// that converting the index back you get and ID that refers to the same entity
+
+/// @brief Gets the underlying index of an entity.
+/// @note Use sparingly: see the note above
+MECS_API MecsU32 mecsEntityIDToIndex(MecsEntityID);
+/// @brief Retrieves the MecsEntityID of an entity from it's index.
+/// @returns MECS_INVALID if there's no such entity, otherwise a valid MecsEntityID
+/// @note Use sparingly: see the note above
+MECS_API MecsEntityID mecsWorldEntityIndexToID(MecsWorld* world, MecsU32 entityIndex);
+
 // Systems
 MECS_API MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo* systemInfo);
 

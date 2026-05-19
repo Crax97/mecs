@@ -683,6 +683,24 @@ MecsSystemID mecsWorldDefineSystem(MecsWorld* world, const MecsDefineSystemInfo*
     return systemID;
 }
 
+
+MecsU32 mecsEntityIDToIndex(MecsEntityID entityID)
+{
+    TaggedEntity entity;
+    entity.entityID = entityID;
+    return entity.tag.index;
+}
+
+
+MECS_API MecsU32 mecsWorldEntityIndexToID(MecsWorld* world, MecsU32 entityIndex)
+{
+    MECS_ASSERT(world != nullptr && "Can't pass a null world");
+    if (world->entities.isValidIndex(entityIndex)) {
+        return world->entities.idAtIndex(entityIndex);
+    }
+    return MECS_INVALID;
+}
+
 MecsRegistry* mecsWorldGetRegistry(MecsWorld* world)
 {
     MECS_ASSERT(world != nullptr && "World must not be null");
