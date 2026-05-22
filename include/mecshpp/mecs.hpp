@@ -194,7 +194,18 @@ namespace detail {
 
     }
 
+    template<MecsSize S, typename A>
+    void addComponentIDs(std::array<MecsComponentID, S>& outArray, size_t idx)
+    {
+        if constexpr (ParameterInfo<A>::kIsComponent) {
+            outArray[idx] = RegistrationInfo<typename ParameterInfo<A>::RawType>::getComponentID().id();
+        } else {
+            outArray[idx] = MECS_INVALID;
+        }
+    }
+
     template<MecsSize S, typename A, typename... Rest>
+        requires (sizeof...(Rest) > 0)
     void addComponentIDs(std::array<MecsComponentID, S>& outArray, size_t idx)
     {
 
@@ -206,23 +217,23 @@ namespace detail {
         addComponentIDs<S, Rest...>(outArray, idx + 1);
     }
 
-    template<MecsSize S, typename A>
-    void addComponentIDs(std::array<MecsComponentID, S>& outArray, size_t idx)
-    {
-        if constexpr (ParameterInfo<A>::kIsComponent) {
-            outArray[idx] = RegistrationInfo<typename ParameterInfo<A>::RawType>::getComponentID();
-        } else {
-            outArray[idx] = MECS_INVALID;
-        }
-    }
-
     template<MecsSize S>
     void addFilter(std::array<MecsIteratorFilter, S>&, size_t)
     {
 
     }
 
+    template<MecsSize S, typename A>
+    void addFilter(std::array<MecsIteratorFilter, S>& outArray, size_t idx)
+    {
+        if constexpr (ParameterInfo<A>::kIsComponent) {
+            outArray[idx] = ParameterInfo<A>::kFilterType;
+        }
+    }
+
+
     template<MecsSize S, typename A, typename... Rest>
+        requires (sizeof...(Rest) > 0)
     void addFilter(std::array<MecsIteratorFilter, S>& outArray, size_t idx)
     {
 
@@ -233,15 +244,6 @@ namespace detail {
         }
         addFilter<S, Rest...>(outArray, idx + 1);
     }
-
-    template<MecsSize S, typename A>
-    void addFilter(std::array<MecsIteratorFilter, S>& outArray, size_t idx)
-    {
-        if constexpr (ParameterInfo<A>::kIsComponent) {
-            outArray[idx] = ParameterInfo<A>::kFilterType;
-        }
-    }
-
 }
 
 namespace detail {
@@ -369,6 +371,7 @@ namespace detail {
                 World& world = *static_cast<World*>(updateData);
                 auto iter = detail::IteratorHelper::makeIterator<Args...>(iterator);
                 (sys.*systemRun)(world, iter);
+                detail::IteratorHelper::forget(iter);
             };
 
             info.systemFlags = 0;
