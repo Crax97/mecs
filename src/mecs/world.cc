@@ -461,7 +461,7 @@ MECS_API MecsEntityID mecsWorldDuplicateEntity(MecsWorld* world, MecsWorld* dest
             }
             tempBitSet.set(world->memAllocator, component, true);
 
-            ArchetypeID newArchetypeID = findArchetype(world, tempBitSet);
+            ArchetypeID newArchetypeID = findArchetype(destinationWorld, tempBitSet);
             destinationWorld->newEvents.push(world->memAllocator, WorldEvent {
                                                                       .kind = WorldEventKind::eNewComponent,
                                                                       .entityID = newEntityID,
