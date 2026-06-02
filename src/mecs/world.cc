@@ -508,14 +508,7 @@ void* mecsWorldAddComponent(MecsWorld* const world, MecsEntityID entity, MecsCom
         if (oldArchetype.storage.hasComponent(component)) {
             // We're re-adding an existing component
             outPtr = oldArchetype.storage.getRowComponent(component, ent->archetypeRow);
-            if (info.destroy != nullptr) { info.destroy(outPtr); }
-            world->newEvents.push(world->memAllocator, WorldEvent {
-                                                           .kind = WorldEventKind::eUpdateComponent,
-                                                           .entityID = entity,
-                                                           .componentID = component,
-                                                           .archetypeID = oldArchetypeID,
-                                                            .newArchetypeID = oldArchetypeID,
-                                                       });
+            return outPtr;
         } else {
             ArchetypeID newArchetypeID = findNewArchetype(world, ent->archetype, component, true);
             moveEntityToNewArchetype(world, entity, newArchetypeID);
@@ -579,6 +572,15 @@ MecsSize mecsWorldEntityGetNumComponents(MecsWorld* world, MecsEntityID entity)
     const Archetype& archetype = world->archetypes[ent->archetype];
     return archetype.componentIDs.count();
 }
+
+MecsPrefabID mecsWorldEntityGetPrefabID(MecsWorld* world, MecsEntityID entity)
+{
+    MECS_ASSERT(world);
+
+    MecsEntity* ent = world->entities.at(entity);
+    return ent->prefabID;
+}
+
 MecsComponentID mecsWorldEntityGetComponentByIndex(MecsWorld* world, MecsEntityID entity, MecsSize index)
 {
     MecsEntity* ent = world->entities.at(entity);

@@ -137,6 +137,10 @@ void World::entityRemoveComponent(EntityID entity, ComponentID component)
 {
     mecsWorldRemoveComponent(mHandle, entity.id(), component.id());
 }
+PrefabID World::entityGetPrefabID(EntityID entity) const
+{
+    return {mecsWorldEntityGetPrefabID(mHandle, entity.id())};
+}
 void World::entityChanged(EntityID entity)
 {
     mecsWorldEntityChanged(mHandle, entity.id());
