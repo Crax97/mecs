@@ -106,7 +106,7 @@
             rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                                                         \
             rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                                                   \
             rttiI.variants = { kVariants.begin(), kVariants.end() };                                                         \
-            rttiI.get = [](void* ptr) { return static_cast<MecsU32>(*static_cast<MecsCurrentT*>(ptr)); };                    \
+            rttiI.get = [](const void* ptr) { return static_cast<MecsU32>(*static_cast<const MecsCurrentT*>(ptr)); };        \
             rttiI.set = [](void* ptr, MecsU32 nval) { *static_cast<MecsCurrentT*>(ptr) = static_cast<MecsCurrentT>(nval); }; \
             return rttiI;                                                                                                    \
         }();                                                                                                                 \
@@ -167,6 +167,15 @@ struct Member {
     const char* name;
     const struct RTTI* memberRtti;
     GetMemberFn getMemberFn;
+
+    void* getMember(void* ptr) const
+    {
+        return getMemberFn(ptr);
+    }
+    const void* getMemberConst(const void* ptr) const
+    {
+        return getMemberFn(const_cast<void*>(ptr));
+    }
 };
 constexpr size_t kMaxMethodArguments = 6;
 struct Method {
@@ -209,7 +218,7 @@ struct RTTIStruct : public RTTI {
     std::vector<Method> methods;
 };
 
-using EnumGetFn = MecsU32 (*)(void*);
+using EnumGetFn = MecsU32 (*)(const void*);
 using EnumSetFn = void (*)(void*, MecsU32);
 
 struct RTTIEnum : public RTTI {
@@ -231,6 +240,11 @@ struct RTTIVec : public RTTI {
     VecClearFn clear;
     VecPushBackFn pushBack;
     VecPopBackFn popBack;
+
+    const void* getElemConst(const void* ptr, size_t i) const
+    {
+        return getElem(const_cast<void*>(ptr), i);
+    }
 };
 
 template <typename T>
