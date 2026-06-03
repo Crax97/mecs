@@ -339,9 +339,7 @@ void setupEntityThroughPrefab(MecsWorld*& world, MecsPrefabID& prefabID, MecsEnt
     const MecsPrefab* pPrefab = world->registry->prefabs.at(prefabID);
     MECS_ASSERT(pPrefab != nullptr && "Invalid Prefab ID");
     const MecsPrefab& prefab = *pPrefab;
-    if (prefab.archetypeBitset.allZeroes()) {
-        return;
-    }
+
     // Setup entity by copying from the prefab
     ArchetypeID entityArchetype = findArchetype(world, prefab.archetypeBitset);
     ent.archetype = entityArchetype;
@@ -556,6 +554,10 @@ void mecsWorldRemoveComponent(MecsWorld* world, MecsEntityID entity, MecsCompone
 {
     MECS_ASSERT(world && world->registry);
     MECS_ASSERT(mecsWorldEntityHasComponent(world, entity, component));
+    MecsEntity* ent = world->entities.at(entity);
+    if (ent->prefabID != MECS_INVALID) {
+        MECS_ASSERT(!mecsRegistryPrefabHasComponent(world->registry, ent->prefabID, component) && "Can't remove a component defined in an entity prefab!");
+    }
 
     // Component removal is deferred to the next flushUpdates
     world->newEvents.push(world->memAllocator, WorldEvent {

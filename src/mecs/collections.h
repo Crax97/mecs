@@ -519,6 +519,23 @@ public:
         return &entry.value;
     }
 
+    T*
+    at(GenIndex index) const
+    {
+
+        TaggedGenIndex versIndex;
+        versIndex.index = index;
+
+        Entry& entry = mEntries.at(versIndex.version.index);
+        MECS_ASSERT(entry.tagGeneration.taken);
+
+        if (entry.tagGeneration.generation != versIndex.version.generation) {
+            return nullptr;
+        }
+
+        return &entry.value;
+    }
+
     bool isValidIndex(MecsU32 index)
     {
         if (index > mEntries.count()) { return false; }

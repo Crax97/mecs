@@ -13,6 +13,7 @@ void MECS_API mecsRegistryPrefabAddComponentWithDefaults(MecsRegistry* reg, Mecs
 MecsSize MECS_API mecsRegistryPrefabGetNumComponents(MecsRegistry* reg, MecsPrefabID prefabID);
 MecsComponentID MECS_API mecsRegistryPrefabGetComponentIDByIndex(MecsRegistry* reg, MecsPrefabID prefabID, MecsSize componentIndex);
 void* MECS_API mecsRegistryPrefabGetComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID);
+MECS_API bool mecsRegistryPrefabHasComponent(const MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID);
 void MECS_API mecsRegistryPrefabRemoveComponent(MecsRegistry* reg, MecsPrefabID prefabID, MecsComponentID componentID);
 void MECS_API mecsRegistryDestroyPrefab(MecsRegistry* reg, MecsPrefabID prefabID);
 MecsSize MECS_API mecsRegistryGetNumPrefabs(MecsRegistry* reg);

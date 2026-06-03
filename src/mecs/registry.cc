@@ -243,3 +243,14 @@ const ComponentInfo* mecsGetComponentInfoByComponentID(MecsRegistry* reg, MecsCo
     MECS_ASSERT(reg != nullptr && "reg must not be null");
     return reg->components.atPtr(componentID);
 }
+bool mecsRegistryPrefabHasComponent(const MecsRegistry* const reg, MecsPrefabID prefabID, MecsComponentID componentID)
+{
+    MECS_ASSERT(reg != nullptr && "reg must not be null");
+    const MecsPrefab* pPrefab = reg->prefabs.at(prefabID);
+
+    for (MecsSize i = 0; i < pPrefab->components.count(); i++) {
+        MecsComponentID component = pPrefab->components[i].component;
+        if (component == componentID) { return true; }
+    }
+    return false;
+}

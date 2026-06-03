@@ -17,9 +17,7 @@ Registry::Registry(const MecsRegistryCreateInfo& registryInfo)
 
 Registry::~Registry()
 {
-    if (mHandle == nullptr) { return; }
-    mecsRegistryFree(mHandle);
-    mHandle = nullptr;
+    destroy();
 }
 
 ComponentID Registry::addRegistration(const ComponentInfo& info)
@@ -39,6 +37,10 @@ void Registry::addPrefabComponent(PrefabID prefab, ComponentID component, const 
 void* Registry::getPrefabComponent(PrefabID prefab, ComponentID component)
 {
     return mecsRegistryPrefabGetComponent(mHandle, prefab.id(), component.id());
+}
+bool Registry::prefabHasComponent(PrefabID prefab, ComponentID component) const
+{
+    return mecsRegistryPrefabHasComponent(mHandle, prefab.id(), component.id());
 }
 
 void Registry::removePrefabComponent(PrefabID prefab, ComponentID component)
@@ -82,6 +84,12 @@ const ComponentInfo& Registry::getComponentInfoByIndex(MecsSize index) const
 const ComponentInfo& Registry::getComponentInfoByComponentID(mecs::ComponentID componentID) const
 {
     return *mecsGetComponentInfoByComponentID(mHandle, componentID.id());
+}
+void Registry::destroy()
+{
+    if (mHandle == nullptr) { return; }
+    mecsRegistryFree(mHandle);
+    mHandle = nullptr;
 }
 
 World::World(Registry& reg, const MecsWorldCreateInfo& worldCreateInfo)

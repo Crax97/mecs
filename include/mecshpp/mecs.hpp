@@ -596,6 +596,7 @@ public:
     PrefabBuilder createPrefab();
     void addPrefabComponent(PrefabID prefab, ComponentID component, const void* defaultValue = nullptr);
     void* getPrefabComponent(PrefabID prefab, ComponentID component);
+    bool prefabHasComponent(PrefabID prefab, ComponentID component) const;
     void removePrefabComponent(PrefabID prefab, ComponentID component);
     void destroyPrefab(PrefabID prefab);
     [[nodiscard]]
@@ -656,6 +657,8 @@ public:
     {
         return mHandle;
     }
+
+    void destroy();
 
 private:
     MecsRegistry* mHandle { nullptr };
