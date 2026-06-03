@@ -48,6 +48,7 @@
     ;                                                                                         \
     static ::mecs::RTTIStruct rtti = []() {                                                   \
         ::mecs::RTTIStruct rttiI;                                                             \
+        static MecsCurrentT defaultValue{};                                                   \
         rttiI.name = kName;                                                                   \
         rttiI.typeID = kTypeID;                                                               \
         rttiI.kind = RttiKind::eStruct;                                                       \
@@ -57,6 +58,7 @@
         rttiI.copy = ::mecs::detail::copy<MecsCurrentT>;                                      \
         rttiI.move = ::mecs::detail::move<MecsCurrentT>;                                      \
         rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                \
+        rttiI.defaultValue = reinterpret_cast<const void*>(&defaultValue);                    \
         rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                              \
         rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                        \
         rttiI.members = { membersContainer.members.begin(), membersContainer.members.end() }; \
@@ -92,6 +94,7 @@
     constexpr static MecsSize kNumVariants = kVariants.size();                                                               \
     static const ::mecs::RTTI& get()                                                                                         \
     {                                                                                                                        \
+        static MecsCurrentT defaultValue {};                                                                                 \
         static ::mecs::RTTIEnum rtti = []() {                                                                                \
             ::mecs::RTTIEnum rttiI;                                                                                          \
             rttiI.name = kName;                                                                                              \
@@ -105,6 +108,7 @@
             rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                                                           \
             rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                                                         \
             rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                                                   \
+            rttiI.defaultValue = reinterpret_cast<const void*>(&defaultValue);                                               \
             rttiI.variants = { kVariants.begin(), kVariants.end() };                                                         \
             rttiI.get = [](const void* ptr) { return static_cast<MecsU32>(*static_cast<const MecsCurrentT*>(ptr)); };        \
             rttiI.set = [](void* ptr, MecsU32 nval) { *static_cast<MecsCurrentT*>(ptr) = static_cast<MecsCurrentT>(nval); }; \
@@ -130,6 +134,7 @@
         constexpr static const char* kName = #Type;                                             \
         static const ::mecs::RTTI& get()                                                        \
         {                                                                                       \
+            static Type defaultValue {};                                                        \
             static ::mecs::RTTI rtti = []() {                                                   \
                 ::mecs::RTTI rttiI;                                                             \
                 rttiI.name = kName;                                                             \
@@ -143,6 +148,7 @@
                 rttiI.destroy = ::mecs::detail::destroy<MecsCurrentT>;                          \
                 rttiI.setup = ::mecs::detail::bindSetup<MecsCurrentT>();                        \
                 rttiI.teardown = ::mecs::detail::bindTeardown<MecsCurrentT>();                  \
+                rttiI.defaultValue = reinterpret_cast<const void*>(&defaultValue);              \
                 return rttiI;                                                                   \
             }();                                                                                \
             return rtti;                                                                        \
@@ -211,6 +217,8 @@ struct RTTI {
 
     PFNMecsComponentSetup setup;
     PFNMecsComponentTeardown teardown;
+
+    const void* defaultValue {};
 };
 
 struct RTTIStruct : public RTTI {

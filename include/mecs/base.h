@@ -111,6 +111,9 @@ typedef struct ComponentInfo {
     // Can be null, called when the component is removed from an entity
     PFNMecsComponentTeardown teardown;
 
+    // Can  be null, points to the default value of this component
+    const void* defaultInstance;
+
 } ComponentInfo;
 
 typedef struct MecsEntityInfo {

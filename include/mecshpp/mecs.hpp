@@ -48,6 +48,7 @@ struct RegistrationInfo {
             .destroy = rtti.destroy,
             .setup = rtti.setup,
             .teardown = rtti.teardown,
+            .defaultInstance = rtti.defaultValue,
         };
         mComponentId = { mecsRegistryAddRegistration(reg, &componentInfo) };
         return mComponentId;
